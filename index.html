@@ -302,7 +302,7 @@ header {
 <header>
   <div class="logo">
     <h1>MatchSense</h1>
-    <span class="tag">v2.1-sec</span>
+    <span class="tag">v2.2-sec</span>
   </div>
   <div class="header-actions">
     <div class="ai-badge">
@@ -739,23 +739,46 @@ async function runMatching() {
 
 PHILOSOPHIE DE SCORING :
 Ce qui compte le plus, c'est l'ENGAGEMENT, l'ALIGNEMENT avec les valeurs de l'entreprise, et les SOFT SKILLS.
-Les compétences techniques sont évaluées mais NE SONT PAS éliminatoires : un candidat avec moins de compétences techniques mais très engagé et aligné culturellement DOIT pouvoir obtenir un bon score.
+Les compétences techniques sont évaluées mais NE SONT PAS éliminatoires : un candidat avec moins de compétences techniques mais très engagé et aligné culturellement DOIT pouvoir obtenir un bon score global.
+CEPENDANT, le score technique doit refléter HONNÊTEMENT le niveau d'adéquation avec le poste.
 
 PONDÉRATION (total = 100) :
 - Alignement valeurs & engagement : 40 points (le plus important)
 - Soft skills & savoir-être : 30 points
-- Compétences techniques : 20 points (non éliminatoire)
+- Compétences techniques : 20 points (non éliminatoire, mais scoring HONNÊTE — voir règles ci-dessous)
 - Signaux faibles : 10 points (bonus)
 
+═══ RÈGLE CRITIQUE : COMPÉTENCES TECHNIQUES ═══
+Le score technique mesure UNIQUEMENT l'adéquation entre les compétences du candidat et les EXIGENCES SPÉCIFIQUES de la fiche de poste.
+- Identifie d'abord les compétences techniques REQUISES dans la fiche de poste.
+- Évalue ensuite CHAQUE candidat sur ces compétences-là et UNIQUEMENT celles-là.
+- Les compétences techniques du candidat qui ne correspondent PAS aux besoins du poste ne comptent PAS.
+- Sois HONNÊTE et CALIBRÉ. Un score technique élevé ne se distribue pas par politesse.
+
+CALIBRATION DU SCORE TECHNIQUE (exemples) :
+- 18-20/20 : Le candidat maîtrise la quasi-totalité des compétences techniques exigées par le poste, avec expérience prouvée.
+- 12-17/20 : Le candidat couvre une partie significative des exigences, avec quelques lacunes comblables.
+- 6-11/20 : Le candidat a quelques compétences transférables mais des lacunes majeures sur les exigences clés du poste.
+- 0-5/20 : Le candidat n'a quasiment aucune des compétences techniques demandées dans la fiche de poste, même si par ailleurs c'est un excellent professionnel dans son propre domaine.
+
+EXEMPLE : Si le poste exige "automates Siemens, hydraulique, habilitations électriques" et que le candidat est artisan boulanger avec des compétences HACCP et four à sole → le score technique doit être entre 0 et 5, PAS 12 ou 15. Les compétences HACCP sont réelles mais hors sujet pour ce poste.
+
+═══ RÈGLE ANTI-COMPLAISANCE ═══
+- Ne surnote PAS pour "faire plaisir". Un score bas en technique n'est pas un jugement de valeur sur la personne — c'est un constat d'adéquation au poste.
+- Un candidat peut avoir un score technique de 3/20 ET un score global de 65/100 s'il est très engagé et aligné culturellement. C'est normal et souhaitable.
+- Utilise TOUTE l'échelle : un 0, un 3, un 7 sont des scores parfaitement valides.
+- Dans la justification technique, LISTE explicitement quelles compétences du poste sont couvertes et lesquelles ne le sont pas.
+
 SIGNAUX FAIBLES À DÉTECTER :
-- Missions intérim/CDD dans le même secteur ou la même entreprise
-- Métiers antérieurs avec contraintes similaires (nuit, astreintes, relation client, terrain)
+- Missions intérim/CDD dans le même secteur ou la même entreprise (signal fort d'intégration)
+- Métiers antérieurs avec contraintes similaires (nuit, astreintes, relation client, terrain, travail physique)
 - Polyvalence démontrée par changements de secteur réussis
 - Progression rapide de responsabilités
 - Engagement associatif, bénévolat, mentorat
 - Auto-formation, certifications obtenues en parallèle d'un emploi
 - Gestion de crise, situations exceptionnelles
 - Implication dans des projets transversaux ou d'innovation
+- Reconversion professionnelle volontaire (signal de courage et d'adaptabilité)
 
 RÈGLES ABSOLUES — AI ACT Art. 10 :
 - JAMAIS évaluer/inférer : genre, sexe, âge, origine, nationalité, religion, orientation sexuelle, handicap, situation familiale, apparence, lieu de résidence
@@ -772,7 +795,7 @@ Tu analyses 3 CV contre 1 fiche de poste. Réponds UNIQUEMENT en JSON :
       "scores": {
         "valeurs_engagement": { "score": <0-40>, "justification": "<2 phrases>" },
         "soft_skills": { "score": <0-30>, "justification": "<2 phrases>" },
-        "competences_techniques": { "score": <0-20>, "justification": "<2 phrases>" },
+        "competences_techniques": { "score": <0-20>, "justification": "<LISTE les compétences du poste couvertes et non couvertes. 2-3 phrases.>" },
         "signaux_faibles": { "score": <0-10>, "details": [ {"signal":"<titre>","explication":"<pourquoi pertinent>"} ] }
       },
       "points_forts": ["<...>","<...>"],
@@ -799,7 +822,7 @@ ${anonCVs[1].substring(0,4000)}
 === CV CANDIDAT C (anonymisé) ===
 ${anonCVs[2].substring(0,4000)}
 
-Rappel : évalue prioritairement l'engagement et l'alignement culturel. Les compétences techniques ne sont PAS éliminatoires.`;
+Rappel : évalue prioritairement l'engagement et l'alignement culturel. Les compétences techniques ne sont PAS éliminatoires MAIS doivent être scorées HONNÊTEMENT par rapport aux exigences SPÉCIFIQUES de la fiche de poste ci-dessus. Un boulanger qui postule en maintenance industrielle = score technique très bas, même si c'est un excellent boulanger. Utilise toute l'échelle (0 à 20).`;
 
   try {
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
