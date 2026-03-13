@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- ══ FIX #3 (ÉLEVÉE) : Content Security Policy ══ -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.openai.com; img-src 'self' data:; frame-ancestors 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.openai.com https://api.anthropic.com; img-src 'self' data:; frame-ancestors 'none';">
 <!-- ══ FIX #5 (ÉLEVÉE) : En-têtes de sécurité HTTP ══ -->
 <meta http-equiv="X-Frame-Options" content="DENY">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
@@ -302,7 +302,7 @@ header {
 <header>
   <div class="logo">
     <h1>MatchSense</h1>
-    <span class="tag">v2.4</span>
+    <span class="tag">v2.5</span>
   </div>
   <div class="header-actions">
     <div class="ai-badge">
@@ -407,19 +407,27 @@ header {
   <div class="modal">
     <h3>Paramètres</h3>
     <div class="fg">
-      <label>Clé API OpenAI</label>
-      <div class="hint">Jamais stockée côté serveur — reste dans votre navigateur, cette session uniquement.</div>
+      <label>Fournisseur IA</label>
+      <select id="providerSelect" onchange="updateModels()">
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic (Claude)</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Clé API</label>
+      <div class="hint" id="apiHint">Clé OpenAI (sk-...). Jamais stockée côté serveur.</div>
       <input type="password" id="apiKey" placeholder="sk-proj-..." autocomplete="off" data-lpignore="true">
-      <!-- ══ FIX #4 (ÉLEVÉE) : avertissement clé API côté client ══ -->
-      <div class="api-warning">⚠ La clé API transite uniquement entre votre navigateur et OpenAI. Elle est effacée de la mémoire à la fermeture de l'onglet. En production, utilisez un proxy backend.</div>
+      <div class="api-warning">⚠ La clé transite uniquement entre votre navigateur et l'API. Elle est effacée à la fermeture de l'onglet. En production, utilisez un proxy backend.</div>
     </div>
     <div class="fg">
       <label>Modèle</label>
       <select id="modelSelect">
         <option value="gpt-5.4">GPT-5.4 (recommandé — mars 2026)</option>
         <option value="gpt-5.4-pro">GPT-5.4 Pro (max performance)</option>
+        <option value="gpt-5.2">GPT-5.2 (déc. 2025)</option>
+        <option value="gpt-5.1">GPT-5.1</option>
         <option value="gpt-4o">GPT-4o</option>
-        <option value="gpt-4o-mini">GPT-4o Mini (rapide)</option>
+        <option value="gpt-4o-mini">GPT-4o Mini</option>
         <option value="gpt-4.1">GPT-4.1</option>
         <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
       </select>
@@ -463,24 +471,60 @@ const state = {
     { file:null, text:'' },
     { file:null, text:'' }
   ],
-  _k: '', // FIX #4 : clé stockée sous nom opaque
+  _k: '',
+  provider: 'openai',
   model: 'gpt-5.4'
 };
 
-// ══ FIX #4 (ÉLEVÉE) : getter/setter pour la clé API ══
-// Encapsulation minimale — la clé n'est jamais dans state.apiKey en clair
 Object.defineProperty(state, 'apiKey', {
   get() { return atob(this._k || ''); },
   set(v) { this._k = v ? btoa(v) : ''; },
   enumerable: false
 });
 
-// ══ FIX #4 : nettoyage de la clé à la fermeture ══
 window.addEventListener('beforeunload', () => {
   state._k = '';
   const inp = document.getElementById('apiKey');
   if (inp) inp.value = '';
 });
+
+const MODELS = {
+  openai: [
+    { value:'gpt-5.4', label:'GPT-5.4 (recommand\u00e9 \u2014 mars 2026)' },
+    { value:'gpt-5.4-pro', label:'GPT-5.4 Pro (max performance)' },
+    { value:'gpt-5.2', label:'GPT-5.2 (d\u00e9c. 2025)' },
+    { value:'gpt-5.1', label:'GPT-5.1' },
+    { value:'gpt-4o', label:'GPT-4o' },
+    { value:'gpt-4o-mini', label:'GPT-4o Mini (rapide)' },
+    { value:'gpt-4.1', label:'GPT-4.1' },
+    { value:'gpt-4.1-mini', label:'GPT-4.1 Mini' },
+  ],
+  anthropic: [
+    { value:'claude-sonnet-4-20250514', label:'Claude Sonnet 4 (recommand\u00e9)' },
+    { value:'claude-opus-4-20250714', label:'Claude Opus 4 (max performance)' },
+    { value:'claude-haiku-4-5-20251001', label:'Claude Haiku 4.5 (rapide)' },
+  ]
+};
+
+function updateModels() {
+  const provider = document.getElementById('providerSelect').value;
+  const sel = document.getElementById('modelSelect');
+  const hint = document.getElementById('apiHint');
+  sel.innerHTML = '';
+  MODELS[provider].forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.value;
+    opt.textContent = m.label;
+    sel.appendChild(opt);
+  });
+  if (provider === 'anthropic') {
+    hint.textContent = 'Cl\u00e9 Anthropic (sk-ant-...). Jamais stock\u00e9e c\u00f4t\u00e9 serveur.';
+    document.getElementById('apiKey').placeholder = 'sk-ant-api03-...';
+  } else {
+    hint.textContent = 'Cl\u00e9 OpenAI (sk-...). Jamais stock\u00e9e c\u00f4t\u00e9 serveur.';
+    document.getElementById('apiKey').placeholder = 'sk-proj-...';
+  }
+}
 
 const CVS_META = [
   { id:'dropCV1', input:'inputCV1', cls:'c1', label:'Candidat A' },
@@ -641,16 +685,20 @@ function openSettings(){ document.getElementById('settingsModal').classList.add(
 function closeSettings(){ document.getElementById('settingsModal').classList.remove('active'); }
 function saveSettings(){
   const raw = document.getElementById('apiKey').value.trim();
-  // FIX #4 : validation basique du format de clé
-  if (raw && !raw.startsWith('sk-')) {
-    showToast('Format de cl\u00e9 API invalide (doit commencer par sk-)');
+  const provider = document.getElementById('providerSelect').value;
+  if (raw && provider === 'openai' && !raw.startsWith('sk-')) {
+    showToast('Format de cl\u00e9 OpenAI invalide (doit commencer par sk-)');
+    return;
+  }
+  if (raw && provider === 'anthropic' && !raw.startsWith('sk-ant-')) {
+    showToast('Format de cl\u00e9 Anthropic invalide (doit commencer par sk-ant-)');
     return;
   }
   state.apiKey = raw;
+  state.provider = provider;
   state.model = document.getElementById('modelSelect').value;
-  // Effacer le champ après enregistrement (ne pas laisser en clair dans le DOM)
   document.getElementById('apiKey').value = '';
-  closeSettings(); showToast('Param\u00e8tres enregistr\u00e9s \u2713');
+  closeSettings(); showToast(provider === 'anthropic' ? 'Claude configur\u00e9 \u2713' : 'OpenAI configur\u00e9 \u2713');
 }
 
 // ═══════════════════════════════════════════════════
@@ -861,25 +909,60 @@ INSTRUCTIONS FINALES — À RESPECTER IMPÉRATIVEMENT :
 6. Utilise TOUTE l'échelle. Des scores de 2, 5, 8, 12, 19 sont tous valides.`;
 
   try {
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+state.apiKey },
-      body: JSON.stringify({
-        model: state.model,
-        messages: [{ role:'system', content:systemPrompt },{ role:'user', content:userPrompt }],
-        temperature: 0.05,
-        max_tokens: 8000,
-        response_format: { type:'json_object' }
-      })
-    });
+    let result;
 
-    if(!resp.ok) {
-      const err = await resp.json().catch(()=>({}));
-      throw new Error(err.error?.message || 'Erreur HTTP '+resp.status);
+    if (state.provider === 'anthropic') {
+      // ═══ ANTHROPIC / CLAUDE API ═══
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key': state.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: state.model,
+          system: systemPrompt,
+          messages: [{ role:'user', content:userPrompt }],
+          temperature: 0.05,
+          max_tokens: 8000
+        })
+      });
+
+      if(!resp.ok) {
+        const err = await resp.json().catch(()=>({}));
+        throw new Error(err.error?.message || 'Erreur Anthropic HTTP '+resp.status);
+      }
+
+      const data = await resp.json();
+      const raw = data.content?.[0]?.text || '{}';
+      // Claude peut entourer le JSON de ```json ... ``` — on nettoie
+      const cleaned = raw.replace(/^```json\s*/i,'').replace(/\s*```$/,'').trim();
+      result = JSON.parse(cleaned);
+
+    } else {
+      // ═══ OPENAI API ═══
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+state.apiKey },
+        body: JSON.stringify({
+          model: state.model,
+          messages: [{ role:'system', content:systemPrompt },{ role:'user', content:userPrompt }],
+          temperature: 0.05,
+          max_tokens: 8000,
+          response_format: { type:'json_object' }
+        })
+      });
+
+      if(!resp.ok) {
+        const err = await resp.json().catch(()=>({}));
+        throw new Error(err.error?.message || 'Erreur OpenAI HTTP '+resp.status);
+      }
+
+      const data = await resp.json();
+      result = JSON.parse(data.choices?.[0]?.message?.content || '{}');
     }
-
-    const data = await resp.json();
-    const result = JSON.parse(data.choices?.[0]?.message?.content || '{}');
     stopLoading();
     renderResults(result);
 
