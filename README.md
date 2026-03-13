@@ -1,4 +1,4 @@
-# MatchSense v2.1-sec
+# MatchSense v2.2-sec
 
 **Outil d'aide à la décision pour le recrutement — Matching CV / Fiche de poste**
 
@@ -70,9 +70,9 @@ L'anonymisation côté client supprime automatiquement :
 
 ---
 
-## Sécurité — Audit v2.1-sec
+## Sécurité — Audit v2.2-sec
 
-La version 2.1 corrige les 7 vulnérabilités identifiées par l'audit de sécurité SGPT.
+La version 2.2 corrige les 7 vulnérabilités identifiées par l'audit de sécurité SGPT.
 
 ### Vulnérabilités corrigées
 
