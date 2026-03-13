@@ -1,4 +1,4 @@
-# MatchSense v3.0
+# MatchSense v3.1
 
 **Outil d'aide à la décision pour le recrutement — Matching 3 CV / 1 Fiche de poste**
 
@@ -10,33 +10,53 @@ Les compétences techniques comptent, mais ne sont pas éliminatoires.
 
 ---
 
-## Changement majeur en v3.0 : architecture multi-appels
+## Comment ça marche
 
-### Le problème des versions précédentes
-
-En v2.x, les 3 CV étaient envoyés dans **un seul appel** au modèle. Avec 36 000+ caractères de CV cumulés + un prompt système complexe, le modèle **confondait les candidats** : il attribuait les scores d'engagement d'un candidat à un autre, inventait de la "stabilité" pour un profil instable, et ne voyait pas le bénévolat d'un candidat engagé.
-
-Ce n'est ni un problème de prompt ni de troncation — c'est un problème de **context tracking** sur des textes longs et structurellement similaires.
-
-### La solution v3.0
-
-```
-AVANT (v2.x) :  1 appel → 3 CV ensemble → confusion
-APRÈS (v3.0) :  3 appels parallèles → 1 CV chacun → assemblage client
-```
-
-Chaque appel ne voit qu'**un seul CV** contre la fiche de poste. Le modèle ne peut physiquement pas confondre les candidats. Les 3 appels partent en `Promise.all` (parallèle, pas de rallongement perceptible), puis le classement et la recommandation sont assemblés côté client en JavaScript.
-
-### Avantages
-
-- **Zéro confusion** entre candidats — chaque évaluation est isolée
-- **Appels plus courts** (~20K tokens au lieu de ~50K) → modèle plus performant
-- **Troncation portée à 15 000 chars/CV** puisqu'il n'y a plus de taille cumulative
-- **Reproductibilité** améliorée — les scores ne dépendent plus de l'ordre des CV
+1. Déposer 1 fiche de poste + décrire les valeurs de l'entreprise
+2. Déposer 3 CV (`.docx`, `.txt`, `.pdf`)
+3. L'outil lance **3 appels API en parallèle** (1 CV par appel, pas de confusion)
+4. Chaque candidat est scoré individuellement puis classé côté client
 
 ---
 
-## Multi-provider : OpenAI + Anthropic (Claude)
+## Architecture multi-appels (v3.0+)
+
+```
+AVANT (v2.x) :  1 appel → 3 CV ensemble → le modèle confond les candidats
+APRÈS (v3.0+) :  3 appels parallèles → 1 CV chacun → assemblage client
+```
+
+Chaque appel ne voit qu'**un seul CV** contre la fiche de poste. `Promise.all` lance les 3 en parallèle. Le classement est calculé côté client.
+
+---
+
+## Extraction DOCX native (v3.1)
+
+### Le bug critique des versions précédentes
+
+Un `.docx` est une **archive ZIP** contenant du XML. L'ancien extracteur faisait `file.text()` sur le binaire et essayait de récupérer les caractères ASCII imprimables. Résultat : **bouillie illisible**. Le modèle recevait du charabia et répondait "CV illisible, aucune compétence identifiable" — ce qui expliquait les scores à 0/0/0 pour tous les candidats.
+
+### Le fix v3.1
+
+Un vrai parseur DOCX natif en 3 étapes, **zéro dépendance externe** :
+
+1. **Parcourir les entrées ZIP** — lecture des Local File Headers (`PK\x03\x04`), extraction des noms et positions
+2. **Décompresser** `word/document.xml` — via `DecompressionStream('deflate-raw')` (API native navigateur)
+3. **Parser le XML** — fins de paragraphes `</w:p>` → retours à la ligne, suppression des balises, décodage des entités XML (`&amp;`, `&#x2019;`, etc.)
+
+### Résultats de test sur les 3 CV
+
+| CV | Chars extraits | Bénévolat | Tutorat | Licenciement | Problèmes intégration |
+|----|---------------|-----------|---------|--------------|----------------------|
+| Sophie Le Guén | 3 463 | ✅ | ✅ | — | — |
+| Kévin Morel | 4 766 | — | — | ✅ | ✅ |
+| Yassine Benmoussa | 3 537 | ✅ | ✅ | — | — |
+
+Tous les signaux clés sont correctement extraits — plus de CV "illisible".
+
+---
+
+## Multi-provider : OpenAI + Anthropic
 
 | Provider | Modèles | Clé API |
 |----------|---------|---------|
@@ -46,18 +66,9 @@ Chaque appel ne voit qu'**un seul CV** contre la fiche de poste. Le modèle ne p
 ### Quel modèle choisir ?
 
 - **Claude Sonnet 4** : recommandé — meilleur suivi des instructions structurées, moins de complaisance
-- **GPT-5.4** : très performant, grand contexte, mais tendance à surnoter
+- **GPT-5.4** : performant, grand contexte, mais tendance à surnoter
 - **Claude Opus 4** : max performance pour les cas complexes
-- **GPT-4o / Claude Haiku 4.5** : rapides et économiques pour les tests
-
-### Détails techniques
-
-| | OpenAI | Anthropic |
-|---|--------|-----------|
-| Endpoint | `/v1/chat/completions` | `/v1/messages` |
-| Auth | `Authorization: Bearer` | `x-api-key` + `anthropic-dangerous-direct-browser-access` |
-| System prompt | Message `role: system` | Champ `system` dédié |
-| JSON mode | `response_format: json_object` | Nettoyage backticks |
+- **GPT-4o / Haiku 4.5** : rapides et économiques pour les tests
 
 ---
 
@@ -80,36 +91,23 @@ Chaque appel ne voit qu'**un seul CV** contre la fiche de poste. Le modèle ne p
 |-------|-----------------------------------|
 | 17-20 | 85%+ avec expérience prouvée |
 | 12-16 | 60-84% |
-| 6-11 | 30-59% — lacunes significatives |
+| 6-11 | 30-59% |
 | 0-5 | Moins de 30% — métier différent |
 
-**Règle d'or** : professionnel d'un autre métier sur un poste technique → 0-5/20 obligatoire.
+**Règle d'or** : professionnel d'un autre métier sur un poste technique → 0-5/20.
 
-### Pénalités red flags (soft skills)
+### Pénalités red flags
 
-| Red flag | Pénalité minimum |
-|----------|-----------------|
-| Remarque de manager sur la communication | -10 pts |
+| Red flag | Pénalité |
+|----------|---------|
+| Remarque manager sur la communication | -10 pts |
 | Licenciement pour différend relationnel | -8 pts |
 | CDD non renouvelé pour intégration | -6 pts |
 | 10+ missions courtes sans prolongation | Signal fort |
 
 ### Plafond valeurs
 
-Sans aucun signal d'engagement → maximum 15/40.
-
----
-
-## Signaux faibles détectés
-
-- Missions intérim/CDD dans l'entreprise recruteuse ou son secteur
-- Métiers antérieurs avec contraintes similaires
-- Polyvalence intersectorielle
-- Progression rapide de responsabilités
-- Engagement associatif, bénévolat, mentorat
-- Auto-formation en parallèle d'un emploi
-- Gestion de crise
-- Reconversion professionnelle volontaire
+Sans signal d'engagement → maximum 15/40.
 
 ---
 
@@ -118,10 +116,9 @@ Sans aucun signal d'engagement → maximum 15/40.
 | Exigence | Implémentation |
 |----------|----------------|
 | **Transparence** | Scores décomposés, justifications, pondération affichée |
-| **Non-discrimination** | Anonymisation client-side (25+ patterns) + instruction modèle |
-| **Contrôle humain** | "Score ≠ décision, l'humain reste décisionnaire" |
+| **Non-discrimination** | Anonymisation client-side (25+ patterns) |
+| **Contrôle humain** | "Score ≠ décision" |
 | **Minimisation** | Aucun stockage, clé effacée à la fermeture |
-| **Auditabilité** | Prompt documenté, version taguée |
 
 ### Données anonymisées
 
@@ -133,24 +130,13 @@ Noms, civilités, emails, téléphones, adresses, codes postaux, dates de naissa
 
 | # | Sévérité | Correctif |
 |---|----------|-----------|
-| 1 | CRITIQUE | XSS `file.name` → DOM pur (`textContent`) |
+| 1 | CRITIQUE | XSS `file.name` → DOM pur |
 | 2 | CRITIQUE | Google Fonts → `crossorigin` + `referrerpolicy` |
-| 3 | ÉLEVÉE | CSP → meta stricte, `connect-src` OpenAI + Anthropic |
-| 4 | ÉLEVÉE | Clé API → base64, effacement `beforeunload`, validation format |
-| 5 | ÉLEVÉE | En-têtes → X-Frame-Options, X-Content-Type-Options, Referrer-Policy |
-| 6 | MOYENNE | Anonymisation → +10 patterns |
-| 7 | MOYENNE | innerHTML → `esc()` sur tout contenu API |
-
----
-
-## Utilisation
-
-1. Ouvrir `matchsense-v3.0.html`
-2. **Paramètres** → fournisseur (OpenAI/Anthropic) → clé API → modèle → **Enregistrer**
-3. Déposer la **fiche de poste** (`.pdf`, `.txt`, `.docx`)
-4. Renseigner les **valeurs et culture d'entreprise**
-5. Déposer les **3 CV**
-6. **C'est parti ?**
+| 3 | ÉLEVÉE | CSP stricte, `connect-src` OpenAI + Anthropic |
+| 4 | ÉLEVÉE | Clé API → base64, effacement `beforeunload` |
+| 5 | ÉLEVÉE | En-têtes sécurité HTTP |
+| 6 | MOYENNE | Anonymisation +10 patterns |
+| 7 | MOYENNE | `esc()` sur tout contenu API |
 
 ---
 
@@ -162,67 +148,67 @@ Ancienne boulangère, missions intérim SNCF, bénévolat Restos du Cœur.
 
 | Axe | Attendu | Raison |
 |-----|---------|--------|
-| Technique | 2-4/20 | Métier différent, seul SAP basique |
-| Valeurs | 25-32/40 | Bénévolat, tutorat apprentis, reconversion |
+| Technique | 2-4/20 | Métier différent |
+| Valeurs | 25-32/40 | Bénévolat, tutorat apprentis |
 | Soft skills | 20-25/30 | Relation client, adaptation |
-| Signaux faibles | 6-8/10 | Missions SNCF, contraintes similaires |
+| Signaux faibles | 6-8/10 | Missions SNCF, reconversion |
 | **Global** | **~55-65** | |
 
 ### CV n°2 — Kévin Morel (technique instable)
 
-14 postes en 12 ans, compétences techniques excellentes, red flags relationnels.
+14 postes en 12 ans, compétences excellentes, red flags relationnels.
 
 | Axe | Attendu | Raison |
 |-----|---------|--------|
 | Technique | 17-20/20 | Couvre quasi toutes les exigences |
 | Valeurs | 5-12/40 | Plafonné — zéro engagement |
-| Soft skills | 8-14/30 | Pénalités : licenciement, communication, instabilité |
+| Soft skills | 8-14/30 | Licenciement, communication, instabilité |
 | Signaux faibles | 1-3/10 | Peu de signaux positifs |
 | **Global** | **~35-48** | |
 
 ### CV n°3 — Yassine Benmoussa (engagé stable)
 
-CDI longs, formateur, tuteur, bénévole, trou de 2 ans. Nom arabe → teste l'anonymisation.
+CDI longs, formateur, tuteur, bénévole, trou de 2 ans. Teste l'anonymisation (nom arabe).
 
 | Axe | Attendu | Raison |
 |-----|---------|--------|
-| Technique | 14-17/20 | Bonne couverture, un cran sous Kévin |
-| Valeurs | 33-38/40 | Formateur, tuteur, délégué, bénévolat |
-| Soft skills | 24-28/30 | Communication et mentorat prouvés |
-| Signaux faibles | 7-9/10 | Stabilité, engagement associatif |
-| **Global** | **~78-88** | **Classement #1 attendu** |
+| Technique | 14-17/20 | Bonne couverture |
+| Valeurs | 33-38/40 | Formateur, tuteur, bénévolat |
+| Soft skills | 24-28/30 | Communication et mentorat |
+| Signaux faibles | 7-9/10 | Stabilité, engagement |
+| **Global** | **~78-88** | **#1 attendu** |
 
 ---
 
 ## Historique des versions
 
+### v3.1 — Extraction DOCX native
+
+**Problème** : l'extracteur .docx ne fonctionnait pas — il lisait le binaire ZIP brut au lieu de décompresser le XML. Les CV arrivaient illisibles au modèle, qui scorait tout à 0.
+
+**Fix** : parseur ZIP natif + `DecompressionStream('deflate-raw')` + extraction du texte depuis `word/document.xml`. Zéro dépendance.
+
 ### v3.0 — Architecture multi-appels
 
-**Problème** : le modèle confondait les candidats quand les 3 CV étaient dans le même appel. Kévin recevait les scores de Yassine et inversement.
+**Problème** : avec 3 CV dans le même appel, le modèle confondait les candidats (attribuait les scores de l'un à l'autre).
 
-**Fix** : 3 appels parallèles (1 CV par appel), assemblage côté client. Troncation à 15K chars/CV.
+**Fix** : 3 appels parallèles (1 CV par appel), assemblage client.
 
 ### v2.5 — Multi-provider
 
-Ajout Anthropic (Claude Sonnet/Opus/Haiku), GPT-5.2, GPT-5.1.
+Ajout Anthropic (Claude), GPT-5.2, GPT-5.1.
 
 ### v2.4 — Troncation
 
-**Problème** : CV tronqués à 4K chars, sections bénévolat coupées.
-
-**Fix** : limites portées à 12K chars/CV.
+CV tronqués à 4K chars → sections coupées. Fix : 12K puis 15K chars.
 
 ### v2.3 — Anti-complaisance
 
-**Problème** : GPT surnotait tout le monde.
-
-**Fix** : analyse préalable obligatoire, seuils plancher, plafonds, température 0.05.
+GPT surnotait tout. Fix : analyse préalable, seuils plancher, température 0.05.
 
 ### v2.2 — Scoring relatif
 
-**Problème** : compétences évaluées en absolu.
-
-**Fix** : grille de calibration, scoring par rapport aux exigences du poste.
+Compétences évaluées en absolu. Fix : scoring par rapport au poste.
 
 ### v2.1-sec — Audit sécurité
 
@@ -230,7 +216,7 @@ Ajout Anthropic (Claude Sonnet/Opus/Haiku), GPT-5.2, GPT-5.1.
 
 ### v2.0 — 3 candidats
 
-1 poste + 3 CV, zone valeurs, podium comparatif.
+1 poste + 3 CV, zone valeurs, podium.
 
 ### v1.0 — Prototype
 
@@ -240,50 +226,33 @@ Ajout Anthropic (Claude Sonnet/Opus/Haiku), GPT-5.2, GPT-5.1.
 
 ## Leçons de prompt engineering
 
-### 1. "Sois honnête" ne suffit pas
-
-Les LLMs ont un biais de complaisance. Seuls les **seuils plancher chiffrés** et les **exemples négatifs concrets** fonctionnent.
-
-### 2. Forcer le raisonnement avant le scoring
-
-Sans analyse préalable, le modèle score au feeling. Un champ obligatoire de pré-analyse force le chain-of-thought.
-
-### 3. La troncation tue silencieusement
-
-Les CV .docx extraits en texte brut font 10-17K chars. Tronquer à 4K coupe les sections engagement/bénévolat.
-
-### 4. Les red flags doivent être des pénalités quantifiées
-
-"Note les problèmes" → mention dans le commentaire mais pas d'impact sur le score. "Licenciement = -8 pts minimum" → impact réel.
-
-### 5. Ne jamais mettre 3 CV dans le même appel
-
-Le modèle confond les candidats sur des textes longs et similaires. **1 appel = 1 CV** est la seule architecture fiable.
-
-### 6. La température compte
-
-0.15 → 0.05 a réduit la variabilité significativement. Pour un outil de scoring, la reproductibilité prime.
-
-### 7. Le choix du modèle change tout
-
-Claude suit mieux les instructions structurées avec contraintes. GPT est plus créatif mais plus complaisant.
+| # | Leçon | Détail |
+|---|-------|--------|
+| 1 | "Sois honnête" ne suffit pas | Seuls les seuils plancher chiffrés et les exemples négatifs fonctionnent |
+| 2 | Forcer le raisonnement avant le scoring | Champ `analyse` obligatoire dans le JSON = chain-of-thought forcé |
+| 3 | La troncation tue silencieusement | Les .docx font 10-17K chars en texte brut — tronquer à 4K coupe les sections clés |
+| 4 | Les red flags doivent être des pénalités quantifiées | "Licenciement = -8 pts" fonctionne, "note les problèmes" ne fonctionne pas |
+| 5 | Ne jamais mettre 3 CV dans le même appel | Le modèle confond les candidats — 1 appel = 1 CV |
+| 6 | La température compte | 0.15 → 0.05 = variabilité réduite significativement |
+| 7 | Le choix du modèle change tout | Claude suit mieux les instructions structurées, GPT est plus complaisant |
+| 8 | Vérifier que les données arrivent | Le bug le plus vicieux : le modèle reçoit de la bouillie et invente au lieu de dire "illisible" |
 
 ---
 
 ## Architecture
 
 ```
-matchsense-v3.0.html
+matchsense-v3.1.html
 │
-├── Paramètres multi-provider
+├── extractDocx()              ← Parseur ZIP natif + DecompressionStream
 │
-├── anon()                    ← Anonymisation client-side (25+ regex)
+├── anon()                     ← Anonymisation client-side (25+ regex)
 │
-├── 3× callAPI() en parallèle ← 1 CV par appel, Promise.all
-│   ├── buildSystemPrompt()   ← Prompt individuel + seuils + pénalités
-│   └── OpenAI ou Anthropic   ← Adapté au provider
+├── 3× callAPI() parallèles   ← 1 CV par appel, Promise.all
+│   ├── buildSystemPrompt()    ← Prompt individuel + seuils + pénalités
+│   └── OpenAI ou Anthropic    ← Adapté au provider
 │
-├── Assemblage client          ← Tri par score, recommandation générée en JS
+├── Assemblage client          ← Tri par score, recommandation JS
 │
 ├── esc() + safeNum()          ← Sanitisation XSS
 │
@@ -291,41 +260,40 @@ matchsense-v3.0.html
 ```
 
 ```
-Fichier → extractText() → anon() → 3× API (parallèle) → assemblage → esc() → DOM
-            client          client        réseau             client      client
+.docx → extractDocx() → anon() → callAPI() → JSON → esc() → DOM
+  ZIP      XML→texte      regex     réseau      client    client
 ```
 
 ---
 
 ## Limites connues
 
-- **Extraction PDF basique** — préférer `.txt` ou `.docx`
+- **Extraction PDF basique** — préférer `.docx` ou `.txt`
 - **Clé API côté client** — proxy backend nécessaire en production
-- **Anonymisation regex** — couverture large mais pas infaillible
-- **3 appels API** — coût ×3 par rapport à un appel unique (mais chaque appel est plus court)
-- **Pas de comparaison inter-candidats côté modèle** — chaque évaluation est indépendante, les scores ne sont pas calibrés les uns par rapport aux autres
+- **3 appels API** — coût ×3 mais chaque appel est plus court et plus fiable
+- **Pas de comparaison inter-candidats côté modèle** — les scores sont indépendants
 
 ---
 
 ## Roadmap
 
-- [ ] Fiche de poste de test (maintenance industrielle SNCF)
-- [ ] 4ᵉ appel de synthèse comparative (envoyer les 3 scores au modèle pour une recommandation qualitative)
-- [ ] Affichage de l'analyse préalable dans l'interface
+- [ ] 4ᵉ appel de synthèse comparative (recommandation qualitative par le modèle)
+- [ ] Fiche de poste de test
+- [ ] Affichage de l'analyse dans l'interface
 - [ ] Proxy backend
-- [ ] Extraction PDF via pdf.js
 - [ ] Export résultats en PDF
 - [ ] Mode 2 ou 5 candidats
-- [ ] Comparaison automatique des résultats entre modèles
+- [ ] Extraction PDF via pdf.js
 
 ---
 
 ## Stack
 
 - **Frontend** : HTML/CSS/JS vanilla, single-file, zéro dépendance
+- **Extraction** : parseur ZIP/DOCX natif via `DecompressionStream`
 - **IA** : OpenAI (GPT-5.x / 4.x) + Anthropic (Claude) via `fetch`
 - **Sécurité** : CSP, sanitisation XSS, anonymisation client-side
-- **Prompt** : chain-of-thought forcé, seuils plancher, anti-complaisance, évaluation isolée
+- **Prompt** : chain-of-thought forcé, seuils plancher, évaluation isolée
 
 ---
 
@@ -335,4 +303,4 @@ Outil interne — usage restreint au périmètre de l'organisation.
 
 ---
 
-*MatchSense v3.0 — 1 appel, 1 candidat, 0 confusion.*
+*MatchSense v3.1 — 1 appel, 1 candidat, 1 vrai extracteur DOCX.*
