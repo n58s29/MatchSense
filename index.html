@@ -302,7 +302,7 @@ header {
 <header>
   <div class="logo">
     <h1>MatchSense</h1>
-    <span class="tag">v3.0</span>
+    <span class="tag">v3.1</span>
   </div>
   <div class="header-actions">
     <div class="ai-badge">
@@ -546,25 +546,103 @@ function setupDrop(zoneId, inputId, onFile) {
 
 async function extractText(file) {
   const ext = file.name.split('.').pop().toLowerCase();
-  if(!['pdf','txt','doc','docx'].includes(ext)) { showToast('Format non supporté.'); return ''; }
-  let text = '';
-  if(ext==='txt') { text = await file.text(); }
-  else {
-    text = await file.text().catch(()=>'');
-    if(!text || text.length < 20) {
-      const buf = await file.arrayBuffer();
-      const bytes = new Uint8Array(buf);
-      let raw = '';
-      for(let i=0;i<bytes.length;i++){
-        const c=bytes[i];
-        if((c>=32&&c<=126)||c===10||c===13) raw+=String.fromCharCode(c);
-        else if(c>=192) raw+=String.fromCharCode(c);
-        else raw+=' ';
-      }
-      text = raw.replace(/\s{3,}/g,'\n').replace(/[^\x20-\x7E\xC0-\xFF\n]/g,'').trim();
-    }
+  if(!['pdf','txt','doc','docx'].includes(ext)) { showToast('Format non support\u00e9.'); return ''; }
+
+  // ── TXT : lecture directe ──
+  if(ext==='txt') return await file.text();
+
+  // ── DOCX : décompression ZIP + extraction XML ──
+  if(ext==='docx') {
+    try { return await extractDocx(file); }
+    catch(e) { console.warn('Extraction DOCX \u00e9chou\u00e9e, fallback brut', e); }
   }
+
+  // ── Fallback (PDF, DOC, DOCX échoué) : extraction brute ──
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let raw = '';
+  for(let i=0;i<bytes.length;i++){
+    const c=bytes[i];
+    if((c>=32&&c<=126)||c===10||c===13) raw+=String.fromCharCode(c);
+    else if(c>=192) raw+=String.fromCharCode(c);
+    else raw+=' ';
+  }
+  return raw.replace(/\s{3,}/g,'\n').replace(/[^\x20-\x7E\xC0-\xFF\n]/g,'').trim();
+}
+
+// ═══════════════════════════════════════════════════
+// Extracteur DOCX natif — zéro dépendance externe
+// Un .docx est un ZIP contenant word/document.xml
+// On utilise DecompressionStream (navigateurs modernes)
+// ═══════════════════════════════════════════════════
+async function extractDocx(file) {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  const view = new DataView(buf);
+
+  // ── Parcourir les entrées ZIP (Local File Headers) ──
+  const entries = [];
+  let offset = 0;
+  while (offset < bytes.length - 30) {
+    // Signature PK\x03\x04
+    if (view.getUint32(offset, true) !== 0x04034b50) { offset++; continue; }
+    const compMethod = view.getUint16(offset + 8, true);
+    const compSize = view.getUint32(offset + 18, true);
+    const nameLen = view.getUint16(offset + 26, true);
+    const extraLen = view.getUint16(offset + 28, true);
+    const name = new TextDecoder().decode(bytes.slice(offset + 30, offset + 30 + nameLen));
+    const dataStart = offset + 30 + nameLen + extraLen;
+    entries.push({ name, compMethod, compSize, dataStart });
+    offset = dataStart + compSize;
+  }
+
+  // ── Trouver word/document.xml ──
+  const docEntry = entries.find(e => e.name === 'word/document.xml');
+  if (!docEntry) throw new Error('word/document.xml introuvable');
+
+  let xmlBytes = bytes.slice(docEntry.dataStart, docEntry.dataStart + docEntry.compSize);
+
+  // ── Décompresser si méthode 8 (deflate) ──
+  if (docEntry.compMethod === 8) {
+    xmlBytes = await decompressDeflateRaw(xmlBytes);
+  }
+
+  // ── Parser le XML et extraire le texte ──
+  const xml = new TextDecoder('utf-8').decode(xmlBytes);
+  // Insérer des retours à la ligne aux fins de paragraphes
+  let text = xml.replace(/<\/w:p[^>]*>/g, '\n');
+  // Insérer des tabulations aux cellules de tableau
+  text = text.replace(/<\/w:tc[^>]*>/g, '\t');
+  // Supprimer toutes les balises XML
+  text = text.replace(/<[^>]+>/g, '');
+  // Décoder les entités XML courantes
+  text = text.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+  // Décoder les entités numériques (&#x2019; etc.)
+  text = text.replace(/&#x([0-9A-Fa-f]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex,16)));
+  text = text.replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec,10)));
+  // Nettoyer les espaces multiples
+  text = text.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   return text;
+}
+
+// ── Décompression deflate-raw via DecompressionStream ──
+async function decompressDeflateRaw(compressed) {
+  const ds = new DecompressionStream('deflate-raw');
+  const writer = ds.writable.getWriter();
+  const reader = ds.readable.getReader();
+  writer.write(compressed);
+  writer.close();
+  const chunks = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const totalLen = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const chunk of chunks) { result.set(chunk, pos); pos += chunk.length; }
+  return result;
 }
 
 // ═══════════════════════════════════════════════════
