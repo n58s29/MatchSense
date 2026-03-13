@@ -302,7 +302,7 @@ header {
 <header>
   <div class="logo">
     <h1>MatchSense</h1>
-    <span class="tag">v2.2-sec</span>
+    <span class="tag">v2.3</span>
   </div>
   <div class="header-actions">
     <div class="ai-badge">
@@ -737,76 +737,104 @@ async function runMatching() {
   const anonJob = anon(state.job.text);
   const anonCVs = state.cvs.map(c => anon(c.text));
 
-  const systemPrompt = `Tu es un expert en recrutement éthique et matching de profils. Tu analyses des documents ANONYMISÉS.
+  const systemPrompt = `Tu es un évaluateur de recrutement STRICT et HONNÊTE. Tu analyses des documents ANONYMISÉS.
 
-PHILOSOPHIE DE SCORING :
-Ce qui compte le plus, c'est l'ENGAGEMENT, l'ALIGNEMENT avec les valeurs de l'entreprise, et les SOFT SKILLS.
-Les compétences techniques sont évaluées mais NE SONT PAS éliminatoires : un candidat avec moins de compétences techniques mais très engagé et aligné culturellement DOIT pouvoir obtenir un bon score global.
-CEPENDANT, le score technique doit refléter HONNÊTEMENT le niveau d'adéquation avec le poste.
+═══ MÉTHODE OBLIGATOIRE : ANALYSE AVANT SCORING ═══
+Tu DOIS d'abord remplir le champ "analyse_prealable" AVANT de scorer. Cette étape est OBLIGATOIRE.
+Dans cette analyse préalable :
+1. EXTRAIS la liste des compétences techniques EXIGÉES par la fiche de poste
+2. Pour CHAQUE candidat, identifie QUELLES compétences du poste il possède et lesquelles lui manquent
+3. Pour CHAQUE candidat, identifie les RED FLAGS (instabilité, licenciements, problèmes relationnels mentionnés, très nombreuses missions courtes)
+4. Pour CHAQUE candidat, identifie les SIGNAUX POSITIFS (engagement, bénévolat, tutorat, stabilité, progression)
+5. COMPARE les 3 candidats entre eux avant d'attribuer un seul score
 
-PONDÉRATION (total = 100) :
-- Alignement valeurs & engagement : 40 points (le plus important)
-- Soft skills & savoir-être : 30 points
-- Compétences techniques : 20 points (non éliminatoire, mais scoring HONNÊTE — voir règles ci-dessous)
-- Signaux faibles : 10 points (bonus)
+═══ PONDÉRATION (total = 100) ═══
+- Valeurs & engagement : 40 pts — bénévolat, stabilité, tutorat, mentorat, engagement collectif, projets transversaux
+- Soft skills : 30 pts — communication, esprit d'équipe, adaptabilité, fiabilité. ATTENTION : un candidat avec des remarques négatives de managers sur sa communication ou son intégration doit être pénalisé. Un candidat licencié pour problèmes relationnels ou qui démissionne fréquemment = score soft skills BAS.
+- Compétences techniques : 20 pts — adéquation STRICTE avec les exigences du poste (voir règles ci-dessous)
+- Signaux faibles : 10 pts — bonus pour éléments cachés valorisables
 
-═══ RÈGLE CRITIQUE : COMPÉTENCES TECHNIQUES ═══
-Le score technique mesure UNIQUEMENT l'adéquation entre les compétences du candidat et les EXIGENCES SPÉCIFIQUES de la fiche de poste.
-- Identifie d'abord les compétences techniques REQUISES dans la fiche de poste.
-- Évalue ensuite CHAQUE candidat sur ces compétences-là et UNIQUEMENT celles-là.
-- Les compétences techniques du candidat qui ne correspondent PAS aux besoins du poste ne comptent PAS.
-- Sois HONNÊTE et CALIBRÉ. Un score technique élevé ne se distribue pas par politesse.
+═══ SCORING TECHNIQUE : RÈGLES STRICTES ═══
+Le score technique mesure UNIQUEMENT combien des compétences EXIGÉES PAR LE POSTE le candidat possède.
+- ÉTAPE 1 : Liste les compétences techniques de la fiche de poste
+- ÉTAPE 2 : Pour chaque candidat, coche celles qu'il a et barre celles qu'il n'a pas
+- ÉTAPE 3 : Score = pourcentage de couverture × 20
 
-CALIBRATION DU SCORE TECHNIQUE (exemples) :
-- 18-20/20 : Le candidat maîtrise la quasi-totalité des compétences techniques exigées par le poste, avec expérience prouvée.
-- 12-17/20 : Le candidat couvre une partie significative des exigences, avec quelques lacunes comblables.
-- 6-11/20 : Le candidat a quelques compétences transférables mais des lacunes majeures sur les exigences clés du poste.
-- 0-5/20 : Le candidat n'a quasiment aucune des compétences techniques demandées dans la fiche de poste, même si par ailleurs c'est un excellent professionnel dans son propre domaine.
+GRILLE :
+- 17-20 : Couvre 85%+ des exigences techniques du poste avec expérience prouvée
+- 12-16 : Couvre 60-84% des exigences
+- 6-11 : Couvre 30-59% — lacunes significatives sur des compétences clés
+- 0-5 : Couvre moins de 30% — métier différent, compétences hors sujet pour ce poste
 
-EXEMPLE : Si le poste exige "automates Siemens, hydraulique, habilitations électriques" et que le candidat est artisan boulanger avec des compétences HACCP et four à sole → le score technique doit être entre 0 et 5, PAS 12 ou 15. Les compétences HACCP sont réelles mais hors sujet pour ce poste.
+RÈGLE D'OR : Si le candidat vient d'un tout autre métier (ex: boulangerie, commerce, nettoyage) et que le poste est technique (maintenance, informatique, ingénierie), le score technique est OBLIGATOIREMENT entre 0 et 5, MÊME s'il a quelques compétences transversales.
 
-═══ RÈGLE ANTI-COMPLAISANCE ═══
-- Ne surnote PAS pour "faire plaisir". Un score bas en technique n'est pas un jugement de valeur sur la personne — c'est un constat d'adéquation au poste.
-- Un candidat peut avoir un score technique de 3/20 ET un score global de 65/100 s'il est très engagé et aligné culturellement. C'est normal et souhaitable.
-- Utilise TOUTE l'échelle : un 0, un 3, un 7 sont des scores parfaitement valides.
-- Dans la justification technique, LISTE explicitement quelles compétences du poste sont couvertes et lesquelles ne le sont pas.
+COHÉRENCE COMPARATIVE OBLIGATOIRE :
+- Si le candidat A maîtrise 3 automates Siemens et que le candidat B n'a jamais touché un automate → A doit avoir un score technique BEAUCOUP PLUS ÉLEVÉ que B
+- Les scores techniques des 3 candidats doivent refléter les ÉCARTS RÉELS entre leurs compétences par rapport au poste
 
-SIGNAUX FAIBLES À DÉTECTER :
-- Missions intérim/CDD dans le même secteur ou la même entreprise (signal fort d'intégration)
-- Métiers antérieurs avec contraintes similaires (nuit, astreintes, relation client, terrain, travail physique)
-- Polyvalence démontrée par changements de secteur réussis
-- Progression rapide de responsabilités
-- Engagement associatif, bénévolat, mentorat
-- Auto-formation, certifications obtenues en parallèle d'un emploi
-- Gestion de crise, situations exceptionnelles
-- Implication dans des projets transversaux ou d'innovation
-- Reconversion professionnelle volontaire (signal de courage et d'adaptabilité)
+═══ SCORING VALEURS & ENGAGEMENT : RÈGLES STRICTES ═══
+SIGNAUX POSITIFS (qui augmentent le score) :
+- Bénévolat, engagement associatif
+- Tutorat, formation de collègues ou d'apprentis
+- Participation à des groupes de travail sécurité, qualité, TPM
+- Stabilité dans les postes (CDI longs = signal d'engagement)
+- Reconversion volontaire (courage, adaptabilité)
+- Missions réalisées dans l'entreprise recruteuse ou son secteur
 
-RÈGLES ABSOLUES — AI ACT Art. 10 :
-- JAMAIS évaluer/inférer : genre, sexe, âge, origine, nationalité, religion, orientation sexuelle, handicap, situation familiale, apparence, lieu de résidence
-- Ignorer totalement tout indice résiduel de ces informations
-- Évaluer UNIQUEMENT : compétences, expérience, formation, engagement, soft skills, signaux faibles
+SIGNAUX NÉGATIFS (qui baissent le score) :
+- Aucune mention d'engagement collectif, bénévolat, ou tutorat = score bas, pas moyen
+- Très nombreuses missions courtes sans progression = instabilité
+- Démissions fréquentes pour des motifs vagues = signal de désengagement
+- Centres d'intérêt exclusivement solitaires sans aucune dimension collective
 
-Tu analyses 3 CV contre 1 fiche de poste. Réponds UNIQUEMENT en JSON :
+Un candidat sans AUCUN signal d'engagement ne peut PAS avoir plus de 15/40 en valeurs.
+
+═══ SCORING SOFT SKILLS : RÈGLES STRICTES ═══
+RED FLAGS à pénaliser fortement :
+- Remarques explicites de managers sur des problèmes de communication → -10 pts minimum
+- Licenciement pour différend relationnel → -8 pts minimum
+- CDD non renouvelés pour raisons d'intégration → -6 pts minimum
+- 10+ missions courtes consécutives sans être jamais prolongé → signal de problème relationnel
+
+SIGNAUX POSITIFS :
+- Formateur, tuteur, mentor
+- Rôle de délégué ou référent
+- Collaboration mentionnée positivement
+- Relation client
+- Encadrement d'équipe
+
+═══ AI ACT — RÈGLES ABSOLUES ═══
+JAMAIS évaluer/inférer : genre, sexe, âge, origine, nationalité, religion, orientation sexuelle, handicap, situation familiale, apparence, lieu de résidence.
+Ignorer tout indice résiduel.
+
+═══ FORMAT DE RÉPONSE (JSON UNIQUEMENT) ═══
 {
+  "analyse_prealable": {
+    "competences_requises_poste": ["<comp1>", "<comp2>", "..."],
+    "mapping_candidats": {
+      "A": { "competences_couvertes": ["..."], "competences_manquantes": ["..."], "red_flags": ["..."], "signaux_positifs": ["..."] },
+      "B": { "competences_couvertes": ["..."], "competences_manquantes": ["..."], "red_flags": ["..."], "signaux_positifs": ["..."] },
+      "C": { "competences_couvertes": ["..."], "competences_manquantes": ["..."], "red_flags": ["..."], "signaux_positifs": ["..."] }
+    }
+  },
   "candidats": [
     {
       "id": "A",
       "score_global": <0-100>,
       "verdict": "<Excellent|Très bon|Bon|Moyen|Faible>",
       "scores": {
-        "valeurs_engagement": { "score": <0-40>, "justification": "<2 phrases>" },
-        "soft_skills": { "score": <0-30>, "justification": "<2 phrases>" },
-        "competences_techniques": { "score": <0-20>, "justification": "<LISTE les compétences du poste couvertes et non couvertes. 2-3 phrases.>" },
+        "valeurs_engagement": { "score": <0-40>, "justification": "<2-3 phrases>" },
+        "soft_skills": { "score": <0-30>, "justification": "<2-3 phrases. Mentionne les red flags s'il y en a.>" },
+        "competences_techniques": { "score": <0-20>, "justification": "<LISTE les compétences du poste couvertes et non couvertes.>" },
         "signaux_faibles": { "score": <0-10>, "details": [ {"signal":"<titre>","explication":"<pourquoi pertinent>"} ] }
       },
-      "points_forts": ["<...>","<...>"],
+      "points_forts": ["<...>"],
       "points_vigilance": ["<...>"],
-      "synthese": "<3 phrases : pourquoi ce candidat, ce qui le distingue>"
+      "synthese": "<3 phrases>"
     }
   ],
   "classement": ["A","B","C"],
-  "recommandation_finale": "<4-5 phrases comparatives : qui choisir et pourquoi, en rappelant que c'est une aide à la décision>"
+  "recommandation_finale": "<4-5 phrases comparatives>"
 }`;
 
   const userPrompt = `=== FICHE DE POSTE (anonymisée) ===
@@ -824,7 +852,13 @@ ${anonCVs[1].substring(0,4000)}
 === CV CANDIDAT C (anonymisé) ===
 ${anonCVs[2].substring(0,4000)}
 
-Rappel : évalue prioritairement l'engagement et l'alignement culturel. Les compétences techniques ne sont PAS éliminatoires MAIS doivent être scorées HONNÊTEMENT par rapport aux exigences SPÉCIFIQUES de la fiche de poste ci-dessus. Un boulanger qui postule en maintenance industrielle = score technique très bas, même si c'est un excellent boulanger. Utilise toute l'échelle (0 à 20).`;
+INSTRUCTIONS FINALES — À RESPECTER IMPÉRATIVEMENT :
+1. Remplis d'abord analyse_prealable AVANT de scorer. Liste les compétences du poste, puis mappe chaque candidat.
+2. Score technique = adéquation au POSTE, pas compétences générales. Un professionnel d'un autre métier = 0-5/20 max.
+3. Un candidat avec des licenciements, remarques négatives de managers, ou 10+ missions courtes = soft skills BAS (< 15/30).
+4. Un candidat sans aucun bénévolat, tutorat, ou engagement collectif = valeurs BASSES (< 15/40).
+5. COMPARE les 3 entre eux : si B a 3× plus de compétences techniques pertinentes que A, l'écart de score doit être MASSIF.
+6. Utilise TOUTE l'échelle. Des scores de 2, 5, 8, 12, 19 sont tous valides.`;
 
   try {
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -833,8 +867,8 @@ Rappel : évalue prioritairement l'engagement et l'alignement culturel. Les comp
       body: JSON.stringify({
         model: state.model,
         messages: [{ role:'system', content:systemPrompt },{ role:'user', content:userPrompt }],
-        temperature: 0.15,
-        max_tokens: 4000,
+        temperature: 0.05,
+        max_tokens: 6000,
         response_format: { type:'json_object' }
       })
     });
