@@ -1,42 +1,87 @@
-# MatchSense v2.2-sec
+# MatchSense v2.3
 
-**Outil d'aide à la décision pour le recrutement — Matching CV / Fiche de poste**
+**Outil d'aide à la décision pour le recrutement — Matching 3 CV / 1 Fiche de poste**
 
 > 3 candidats, 1 poste — qui colle le mieux ?
 
-MatchSense analyse 3 CV contre une fiche de poste en priorisant l'**engagement**, l'**alignement culturel** et les **soft skills** plutôt que les seules compétences techniques. Il détecte les **signaux faibles** que l'œil humain manque souvent.
+MatchSense analyse 3 CV contre une fiche de poste en priorisant l'**engagement**, l'**alignement culturel** et les **soft skills**. Il détecte les **signaux faibles** que l'œil humain manque et pénalise les **red flags relationnels** que les recruteurs voient mais que les outils classiques ignorent.
+
+Les compétences techniques comptent, mais ne sont pas éliminatoires.
 
 ---
 
-## Philosophie
+## Pourquoi cet outil existe
 
-Les recruteurs écartent trop vite des profils atypiques : parcours non linéaires, trous dans le CV, reconversions, missions d'intérim multiples. MatchSense inverse la logique habituelle :
+Les outils de matching classiques scorent les mots-clés techniques. Résultat : un technicien ultra-qualifié mais licencié 3 fois pour problèmes relationnels sort premier, et une personne en reconversion avec un parcours atypique mais engagée et alignée culturellement est écartée.
 
-- **Les compétences techniques ne sont pas éliminatoires.** Un candidat moins technique mais très engagé peut scorer plus haut qu'un expert isolé.
-- **Les signaux faibles sont valorisés.** Bénévolat, tutorat, engagement associatif, progression rapide, polyvalence intersectorielle — tout ce qui ne rentre pas dans une grille classique.
-- **Zéro biais.** Anonymisation côté client avant tout envoi. Le modèle IA reçoit l'instruction explicite d'ignorer tout indice de genre, âge, origine, handicap, situation familiale.
+MatchSense inverse cette logique.
 
 ---
 
 ## Pondération du scoring
 
-| Axe | Points | Poids | Philosophie |
-|-----|--------|-------|-------------|
-| **Valeurs & engagement** | /40 | 40% | Le plus important — alignement avec la culture d'entreprise |
-| **Soft skills** | /30 | 30% | Savoir-être, communication, esprit d'équipe, adaptabilité |
-| **Compétences techniques** | /20 | 20% | Évaluées mais **non éliminatoires** |
-| **Signaux faibles** | /10 | 10% | Bonus — détection de potentiel caché |
+| Axe | Points | Poids | Ce qui est évalué |
+|-----|--------|-------|-------------------|
+| **Valeurs & engagement** | /40 | 40% | Bénévolat, tutorat, stabilité, engagement collectif, projets transversaux |
+| **Soft skills** | /30 | 30% | Communication, esprit d'équipe, fiabilité — avec pénalités pour les red flags |
+| **Compétences techniques** | /20 | 20% | Adéquation STRICTE aux exigences du poste — non éliminatoire |
+| **Signaux faibles** | /10 | 10% | Potentiel caché, reconversion, contraintes similaires |
 
-### Signaux faibles détectés
+---
 
-- Missions intérim/CDD dans le même secteur ou la même entreprise
-- Métiers antérieurs avec contraintes similaires (nuit, astreintes, terrain)
+## Comment le scoring fonctionne (v2.3)
+
+### Étape 1 — Analyse préalable obligatoire
+
+Avant de scorer, le modèle doit remplir un champ `analyse_prealable` dans le JSON qui contient la liste des compétences techniques exigées par la fiche de poste, puis pour chaque candidat un mapping explicite des compétences couvertes vs manquantes, des red flags identifiés et des signaux positifs détectés. Cette étape force le raisonnement "faits d'abord, score ensuite" et empêche le modèle de scorer à l'intuition.
+
+### Étape 2 — Scoring technique par couverture
+
+Le score technique n'est plus évalué "au feeling". Le modèle doit lister les compétences du poste, cocher celles que le candidat possède, barrer celles qu'il n'a pas, et scorer en proportion.
+
+| Score | Couverture des exigences du poste |
+|-------|-----------------------------------|
+| 17-20 | 85%+ des compétences requises avec expérience prouvée |
+| 12-16 | 60-84% des compétences requises |
+| 6-11 | 30-59% — lacunes significatives |
+| 0-5 | Moins de 30% — métier différent, compétences hors sujet |
+
+**Règle d'or** : un professionnel d'un autre métier (boulanger, commercial, agent de nettoyage) qui postule sur un poste technique (maintenance, informatique, ingénierie) obtient obligatoirement entre 0 et 5, même s'il est excellent dans son domaine.
+
+### Étape 3 — Pénalités pour red flags
+
+Les red flags relationnels et comportementaux sont pénalisés avec des seuils plancher explicites.
+
+**Soft skills — pénalités :**
+
+| Red flag | Pénalité minimum |
+|----------|-----------------|
+| Remarque explicite d'un manager sur la communication | -10 pts |
+| Licenciement pour différend relationnel | -8 pts |
+| CDD non renouvelé pour problèmes d'intégration | -6 pts |
+| 10+ missions courtes sans jamais être prolongé | Signal fort de problème relationnel |
+
+**Valeurs & engagement — plafond :**
+
+Un candidat sans aucun signal d'engagement (zéro bénévolat, zéro tutorat, zéro projet collectif) est plafonné à 15/40 maximum.
+
+### Étape 4 — Cohérence comparative
+
+Les scores des 3 candidats doivent refléter les écarts réels. Si le candidat B maîtrise 3 automates Siemens et que le candidat A n'a jamais touché un automate, l'écart de score technique doit être massif — pas 2 points d'écart.
+
+---
+
+## Signaux faibles détectés
+
+- Missions intérim/CDD réalisées dans l'entreprise recruteuse ou son secteur
+- Métiers antérieurs avec contraintes similaires (nuit, astreintes, terrain, travail physique)
 - Polyvalence démontrée par des changements de secteur réussis
 - Progression rapide de responsabilités
 - Engagement associatif, bénévolat, mentorat
 - Auto-formation, certifications obtenues en parallèle d'un emploi
 - Gestion de crise ou situations exceptionnelles
 - Implication dans des projets transversaux ou d'innovation
+- Reconversion professionnelle volontaire
 
 ---
 
@@ -44,53 +89,31 @@ Les recruteurs écartent trop vite des profils atypiques : parcours non linéair
 
 MatchSense est conçu comme un **outil d'aide à la décision humaine** (AI Act, Article 14), pas comme un système de décision automatisée.
 
-### Mesures implémentées
-
-| Exigence AI Act | Implémentation |
-|-----------------|----------------|
-| **Transparence** | Score décomposé par axe, justifications textuelles, explainability complète |
-| **Non-discrimination** | Anonymisation côté client + instruction explicite au modèle d'ignorer tout critère protégé |
-| **Contrôle humain** | Le score ≠ une décision. Mention systématique que l'humain reste décisionnaire |
-| **Minimisation des données** | Aucune donnée stockée. Clé API effacée à la fermeture de l'onglet |
-| **Auditabilité** | Pondération affichée, prompt système documenté, version taguée |
+| Exigence | Implémentation |
+|----------|----------------|
+| **Transparence** | Score décomposé par axe, justifications textuelles, analyse préalable visible, pondération affichée |
+| **Non-discrimination** | Anonymisation côté client (25+ patterns) + instruction explicite au modèle d'ignorer tout critère protégé |
+| **Contrôle humain** | Mention systématique "score ≠ décision, l'humain reste décisionnaire" |
+| **Minimisation** | Aucune donnée stockée, clé API effacée à la fermeture |
+| **Auditabilité** | Prompt documenté, version taguée, analyse préalable dans le JSON |
 
 ### Données anonymisées avant envoi
 
-L'anonymisation côté client supprime automatiquement :
-
-- Noms et prénoms (pattern Prénom NOM)
-- Civilités (M., Mme, Mlle)
-- Emails, téléphones, adresses, codes postaux
-- Dates de naissance, âge, lieu de naissance
-- Nationalité, situation familiale, nombre d'enfants
-- Mentions de handicap, RQTH, AAH, MDPH
-- Numéro de sécurité sociale, IBAN
-- URLs, profils LinkedIn et réseaux sociaux
-- Références à une photo
+L'anonymisation côté client supprime : noms/prénoms, civilités, emails, téléphones, adresses, codes postaux, dates de naissance, âge, nationalité, situation familiale, nombre d'enfants, mentions de handicap/RQTH/AAH/MDPH, numéro de sécurité sociale, IBAN, URLs, profils LinkedIn et réseaux sociaux, références à une photo.
 
 ---
 
-## Sécurité — Audit v2.2-sec
-
-La version 2.2 corrige les 7 vulnérabilités identifiées par l'audit de sécurité SGPT.
-
-### Vulnérabilités corrigées
+## Sécurité (audit SGPT corrigé)
 
 | # | Sévérité | Vulnérabilité | Correctif |
 |---|----------|---------------|-----------|
-| 1 | 🔴 CRITIQUE | XSS via `innerHTML` avec `file.name` non sanitisé | `renderFileLoaded` réécrit en DOM pur (`createElement` + `textContent`) |
-| 2 | 🔴 CRITIQUE | Google Fonts sans Subresource Integrity | Ajout `crossorigin="anonymous"` + `referrerpolicy="no-referrer"` + preconnect |
-| 3 | 🟠 ÉLEVÉE | Absence de Content Security Policy | Meta CSP stricte : `default-src 'self'`, `connect-src` limité à `api.openai.com`, `frame-ancestors 'none'` |
-| 4 | 🟠 ÉLEVÉE | Clé API en mémoire sans protection | Encodage base64, getter/setter opaque, effacement au `beforeunload`, validation format `sk-`, champ vidé après save |
-| 5 | 🟠 ÉLEVÉE | Absence d'en-têtes de sécurité HTTP | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` |
-| 6 | 🟡 MOYENNE | Anonymisation insuffisante | +10 patterns : URLs, LinkedIn, n° sécu, IBAN, enfants, noms propres, unicode étendu |
-| 7 | 🟡 MOYENNE | `innerHTML` non sanitisé dans `renderResults` | Fonction `esc()` appliquée à tout contenu provenant de l'API. `safeNum()` pour les valeurs numériques injectées dans les styles |
-
-### Mesures complémentaires
-
-- `"use strict"` activé globalement
-- Badge visuel **CSP + XSS** dans le header pour confirmer les protections actives
-- Avertissement dans les paramètres rappelant qu'en production, un proxy backend est nécessaire
+| 1 | CRITIQUE | XSS via `innerHTML` avec `file.name` | `renderFileLoaded` réécrit en DOM pur (`textContent`) |
+| 2 | CRITIQUE | Google Fonts sans SRI | `crossorigin="anonymous"` + `referrerpolicy="no-referrer"` |
+| 3 | ÉLEVÉE | Absence de CSP | Meta CSP stricte, `connect-src` limité à `api.openai.com`, `frame-ancestors 'none'` |
+| 4 | ÉLEVÉE | Clé API en mémoire | Encodage base64, getter/setter, effacement au `beforeunload`, validation `sk-` |
+| 5 | ÉLEVÉE | Absence d'en-têtes sécurité | `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` |
+| 6 | MOYENNE | Anonymisation insuffisante | +10 patterns (URLs, n° sécu, IBAN, noms propres, unicode étendu) |
+| 7 | MOYENNE | `innerHTML` non sanitisé | Fonction `esc()` sur tout contenu API, `safeNum()` pour les styles |
 
 ---
 
@@ -98,152 +121,169 @@ La version 2.2 corrige les 7 vulnérabilités identifiées par l'audit de sécur
 
 ### Prérequis
 
-- Un navigateur moderne (Chrome, Firefox, Edge, Safari)
-- Une clé API OpenAI avec accès à GPT-4o ou GPT-4.1
+- Navigateur moderne (Chrome, Firefox, Edge, Safari)
+- Clé API OpenAI avec accès GPT-5.4 ou GPT-4o
 
 ### Lancement
 
-1. Ouvrir `matchsense-v2.1-sec.html` dans un navigateur
-2. Cliquer sur **Paramètres** → saisir la clé API OpenAI → **Enregistrer**
-3. Déposer la **fiche de poste** (drag & drop ou clic) — formats : `.pdf`, `.txt`, `.docx`
-4. Renseigner les **valeurs et culture d'entreprise** dans la zone de texte
+1. Ouvrir `matchsense-v2.3.html` dans un navigateur
+2. **Paramètres** → saisir la clé API OpenAI → **Enregistrer**
+3. Déposer la **fiche de poste** (drag & drop ou clic)
+4. Renseigner les **valeurs et culture d'entreprise**
 5. Déposer les **3 CV** des candidats A, B et C
 6. Cliquer sur **C'est parti ?**
 
+### Formats acceptés
+
+`.pdf`, `.txt`, `.docx` — le `.txt` donne les meilleurs résultats, le `.docx` fonctionne bien, le `.pdf` utilise une extraction basique.
+
 ### Résultats
 
-- **Podium comparatif** : classement 1/2/3 avec score global et barres par axe
-- **Recommandation comparative** : synthèse globale en prose
-- **Fiches détaillées** : par candidat, avec justification de chaque axe, signaux faibles détectés, points forts et points de vigilance
-- **Disclaimer AI Act** : rappel que l'outil est une aide à la décision
+- **Podium comparatif** avec classement, scores globaux et barres par axe
+- **Recommandation comparative** en prose
+- **Fiches détaillées** par candidat : justification de chaque axe, signaux faibles, points forts/vigilance, synthèse
+- **Disclaimer AI Act**
 
 ---
 
 ## Jeu de données de test
 
-Trois CV fictifs sont fournis pour tester le comportement de l'outil sur des profils contrastés.
+Trois CV fictifs couvrent des profils volontairement contrastés pour tester les garde-fous du scoring.
 
-### CV n°2 — Kévin Morel (`CV2_Kevin_Morel_Maintenance.txt`)
+### CV n°1 — Sophie Le Guén (`CV_Sophie_LeGuen_Reconversion.docx`)
 
-**Profil** : ultra technique, instable, faible relationnel
+**Profil** : ancienne boulangère en reconversion, missions intérim à la SNCF
 
-- 14 postes en 12 ans, majorité en intérim de 2 à 6 mois
-- Compétences techniques excellentes (automates, hydraulique, soudure, GMAO, habilitations)
-- Red flags relationnels explicites dans le CV (« difficultés d'intégration », « communication insuffisante »)
-- Licenciement suite à un différend avec un chef d'équipe
-- Zéro engagement associatif, centres d'intérêt solitaires
+- 10 ans d'artisanat boulanger, puis reconversion volontaire
+- 2 missions intérim au Technicentre de Maintenance SNCF Nantes (nettoyage puis logistique)
+- Bénévolat aux Restos du Cœur, formatrice d'apprentis CAP, relation client
+- Compétences techniques hors sujet pour un poste maintenance industrielle
 
-**Score attendu** : technique haut (~18-20/20), valeurs/engagement très bas, soft skills bas → score global ~35-50.
+**Scores attendus** : technique 2-4/20 (SAP basique = seul point de contact) · valeurs/engagement 25-32/40 (bénévolat, tutorat apprentis, reconversion) · soft skills 20-25/30 · signaux faibles 6-8/10 (missions SNCF, contraintes similaires) · **global ~55-65**
+
+### CV n°2 — Kévin Morel (`CV2_Kevin_Morel_Maintenance.docx`)
+
+**Profil** : ultra technique, instable, problèmes relationnels documentés
+
+- 14 postes en 12 ans, majorité en intérim 2-6 mois
+- Compétences techniques excellentes (automates Siemens/Schneider/Allen-Bradley, habilitations, GMAO)
+- Red flags explicites : "difficultés d'intégration", "communication insuffisante", licenciement pour différend, démissions multiples
+- Zéro engagement, zéro bénévolat, centres d'intérêt solitaires
+
+**Scores attendus** : technique 17-20/20 · valeurs/engagement 5-12/40 (plafonné, zéro signal) · soft skills 8-14/30 (pénalités red flags) · signaux faibles 1-3/10 · **global ~35-48**
 
 ### CV n°3 — Yassine Benmoussa (`CV3_Yassine_Benmoussa.docx`)
 
-**Profil** : bon technicien, stable, engagé, avec un trou de 2 ans
+**Profil** : bon technicien, stable, très engagé, trou de 2 ans dans le CV
 
 - 4 CDI longs (jusqu'à 4 ans 6 mois chez Airbus Atlantic)
-- Trou de 2 ans (2019-2021) — « raisons personnelles et familiales »
-- Signaux forts d'engagement : formateur, tuteur d'alternants, délégué sécurité, participant TPM
+- Trou de 2 ans (2019-2021) pour raisons personnelles
+- Signaux forts : formateur sécurité, tuteur 2 alternants, référent formation 12 opérateurs, participant TPM, délégué sécurité
 - Bénévolat : soutien scolaire, coach foot enfants, courses caritatives
 - Nom à consonance arabe → teste que l'anonymisation neutralise tout biais
 
-**Score attendu** : valeurs/engagement haut (~32-38/40), soft skills haut, technique bon → score global ~70-85. Le trou dans le CV ne doit pas être sur-pénalisé.
-
-### CV n°1 — (à créer)
-
-Profil suggéré : équilibré, technicien correct, bon relationnel, parcours classique. Sert de baseline.
+**Scores attendus** : technique 14-17/20 · valeurs/engagement 33-38/40 · soft skills 24-28/30 · signaux faibles 7-9/10 · **global ~78-88** — classement #1 attendu
 
 ---
 
-## Architecture technique
+## Historique des versions
+
+### v2.3 — Prompt anti-complaisance structurel
+
+**Problème** : GPT surnotait tous les candidats par complaisance. Sophie (boulangère) obtenait 12/20 en technique sur un poste maintenance. Kévin (instable, 0 engagement) obtenait 30/40 en valeurs. Yassine (le meilleur profil) arrivait dernier.
+
+**Cause racine** : le prompt demandait un scoring global sans forcer de raisonnement préalable. Le modèle scorait "au feeling" sans comparer les candidats ni lister les compétences du poste.
+
+**Correctifs** : analyse préalable obligatoire, scoring par couverture, seuils plancher de pénalité, plafond valeurs si zéro engagement, cohérence comparative, température 0.05.
+
+### v2.2 — Scoring technique relatif
+
+**Problème** : le modèle évaluait les compétences techniques de manière absolue au lieu de les rapporter aux exigences du poste.
+
+**Correctifs** : grille de calibration, exemples concrets, règle anti-complaisance.
+
+### v2.1-sec — Audit de sécurité SGPT
+
+7 vulnérabilités corrigées (2 critiques, 5 élevées, 2 moyennes).
+
+### v2.0 — Passage à 3 candidats
+
+Refonte complète : 1 fiche de poste + 3 CV, zone valeurs/culture, podium comparatif, pondération engagement-first.
+
+### v1.0 — Prototype initial
+
+1 fiche de poste + 1 CV, scoring basique.
+
+---
+
+## Architecture
 
 ```
-matchsense-v2.1-sec.html     ← Application complète (single-file HTML)
-├── <head>
-│   ├── Meta CSP + en-têtes sécurité
-│   ├── Google Fonts (crossorigin)
-│   └── <style> — design system complet
-├── <body>
-│   ├── Header (logo, badges AI Act + CSP, paramètres)
-│   ├── Workspace
-│   │   ├── Drop zone fiche de poste
-│   │   ├── Zone valeurs/culture
-│   │   ├── 3× Drop zones CV (A, B, C)
-│   │   └── Bouton "C'est parti ?"
-│   ├── Section résultats (générée dynamiquement)
-│   ├── Overlay de chargement
-│   └── Modal paramètres (clé API, modèle)
-└── <script>
-    ├── esc() / safeNum()      — sanitisation XSS
-    ├── anon()                 — anonymisation client-side (25+ patterns)
-    ├── extractText()          — extraction texte PDF/TXT/DOCX
-    ├── renderFileLoaded()     — affichage fichier (DOM pur, pas innerHTML)
-    ├── runMatching()          — appel API OpenAI avec prompt structuré
-    └── renderResults()        — rendu résultats (tout échappé via esc())
+matchsense-v2.3.html              ← Application single-file
+│
+├── Anonymisation client-side      ← 25+ regex, AVANT tout envoi
+│   └── anon() : emails, tél, adresses, noms, sécu, IBAN, LinkedIn...
+│
+├── Appel API OpenAI               ← Seules les données anonymisées sortent
+│   ├── System prompt structuré    ← Analyse préalable + règles strictes
+│   ├── Temperature: 0.05          ← Minimise la variance
+│   └── JSON mode                  ← response_format: json_object
+│
+├── Sanitisation des résultats     ← esc() + safeNum() sur tout contenu API
+│
+└── Rendu sécurisé                 ← Podium + fiches détaillées + compliance
 ```
 
 ### Flux de données
 
 ```
-Fichiers utilisateur
-       │
-       ▼
-  extractText()          ← Extraction texte brut côté client
-       │
-       ▼
-     anon()              ← Anonymisation (25+ regex, côté client)
-       │
-       ▼
-  API OpenAI             ← Seules les données anonymisées sortent du navigateur
-       │
-       ▼
-  JSON structuré         ← Scores, justifications, signaux faibles
-       │
-       ▼
-  esc() + safeNum()      ← Sanitisation avant injection DOM
-       │
-       ▼
-  Rendu résultats        ← Affichage sécurisé
+Fichiers → extractText() → anon() → API OpenAI → JSON → esc() → DOM
+              client          client      réseau      client    client
 ```
+
+Aucune donnée personnelle ne quitte le navigateur. Aucune donnée n'est stockée.
 
 ---
 
 ## Modèles supportés
 
-| Modèle | Recommandation | Notes |
-|--------|---------------|-------|
-| `gpt-4o` | ✅ Recommandé | Meilleur rapport qualité/coût pour l'analyse de CV |
-| `gpt-4o-mini` | ⚡ Rapide | Moins précis sur les signaux faibles |
-| `gpt-4.1` | 🧪 Nouveau | À tester — potentiellement meilleur sur le raisonnement |
-| `gpt-4.1-mini` | ⚡ Rapide | Alternative rapide de dernière génération |
+| Modèle | Usage | Notes |
+|--------|-------|-------|
+| `gpt-5.4` | Recommandé | Meilleur suivi des instructions structurées |
+| `gpt-5.4-pro` | Max performance | Responses API uniquement |
+| `gpt-4o` | Fallback fiable | Bon compromis qualité/coût |
+| `gpt-4o-mini` | Tests rapides | Moins fiable sur le suivi des règles strictes |
+| `gpt-4.1` / `gpt-4.1-mini` | Alternatives | À tester |
 
 ---
 
 ## Limites connues
 
-- **Extraction PDF/DOCX basique** : l'extraction texte côté client est rudimentaire (lecture binaire des caractères imprimables). Les PDF complexes ou les DOCX avec mise en page avancée peuvent perdre du contenu. Pour de meilleurs résultats, utiliser des fichiers `.txt`.
-- **Pas de proxy backend** : la clé API OpenAI transite côté client. Acceptable pour un prototype interne, mais en production il faut un backend intermédiaire.
-- **Anonymisation par regex** : couverture large (25+ patterns) mais pas infaillible. Des prénoms rares ou des formulations inhabituelles peuvent passer.
-- **Dépendance au modèle** : la qualité du scoring dépend du modèle OpenAI utilisé. Les résultats peuvent varier entre deux exécutions (température à 0.15 pour limiter la variance).
+- **Extraction PDF basique** : les PDF complexes peuvent perdre du contenu. Préférer `.txt` ou `.docx`.
+- **Clé API côté client** : acceptable en prototype, proxy backend nécessaire en production.
+- **Anonymisation par regex** : couverture large mais pas infaillible.
+- **Biais résiduel de complaisance** : malgré les garde-fous, certains modèles peuvent encore surnoter. Vérifier les écarts.
 
 ---
 
 ## Roadmap
 
-- [ ] CV n°1 de test (profil baseline équilibré)
-- [ ] Fiche de poste de test (maintenance industrielle)
-- [ ] Proxy backend pour sécuriser la clé API
-- [ ] Extraction PDF via pdf.js côté client
-- [ ] Export des résultats en PDF
-- [ ] Mode comparaison 2 ou 5 candidats
-- [ ] Historique local des analyses (chiffré)
-- [ ] Tests A/B sur la pondération des axes
+- [ ] Fiche de poste de test (maintenance industrielle SNCF)
+- [ ] Affichage de l'analyse préalable dans l'interface
+- [ ] Proxy backend pour la clé API
+- [ ] Extraction PDF via pdf.js
+- [ ] Export résultats en PDF
+- [ ] Mode 2 ou 5 candidats
+- [ ] Tests A/B automatisés sur la stabilité du scoring
 
 ---
 
 ## Stack
 
 - **Frontend** : HTML/CSS/JS vanilla — single-file, zéro dépendance
-- **IA** : API OpenAI (GPT-4o / GPT-4.1) via `fetch`
-- **Sécurité** : CSP, XSS sanitization, anonymisation client-side, en-têtes HTTP
+- **IA** : API OpenAI (GPT-5.4 / GPT-4o) via `fetch`
+- **Sécurité** : CSP, sanitisation XSS, anonymisation client-side, en-têtes HTTP
+- **Prompt engineering** : chain-of-thought forcé, analyse préalable, seuils plancher, anti-complaisance
 
 ---
 
@@ -253,4 +293,4 @@ Outil interne — usage restreint au périmètre de l'organisation.
 
 ---
 
-*MatchSense v2.1-sec — Conçu pour trouver le signal dans le bruit.*
+*MatchSense v2.3 — Conçu pour trouver le signal dans le bruit, pas pour faire plaisir.*
