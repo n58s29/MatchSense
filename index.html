@@ -416,7 +416,9 @@ header {
     <div class="fg">
       <label>Modèle</label>
       <select id="modelSelect">
-        <option value="gpt-4o">GPT-4o (recommandé)</option>
+        <option value="gpt-5.4">GPT-5.4 (recommandé — mars 2026)</option>
+        <option value="gpt-5.4-pro">GPT-5.4 Pro (max performance)</option>
+        <option value="gpt-4o">GPT-4o</option>
         <option value="gpt-4o-mini">GPT-4o Mini (rapide)</option>
         <option value="gpt-4.1">GPT-4.1</option>
         <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
@@ -462,7 +464,7 @@ const state = {
     { file:null, text:'' }
   ],
   _k: '', // FIX #4 : clé stockée sous nom opaque
-  model: 'gpt-4o'
+  model: 'gpt-5.4'
 };
 
 // ══ FIX #4 (ÉLEVÉE) : getter/setter pour la clé API ══
