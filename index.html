@@ -302,7 +302,7 @@ header {
 <header>
   <div class="logo">
     <h1>MatchSense</h1>
-    <span class="tag">v2.5</span>
+    <span class="tag">v3.0</span>
   </div>
   <div class="header-actions">
     <div class="ai-badge">
@@ -754,11 +754,11 @@ function anon(t) {
 
 // ═══════════════ LOADING MSG ═══════════════
 const LOAD_MSGS = [
-  'Anonymisation en cours\u2026',
-  'Extraction des comp\u00e9tences\u2026',
-  'Analyse des signaux faibles\u2026',
-  '\u00c9valuation de l\u2019alignement culturel\u2026',
-  'Calcul des scores comparatifs\u2026'
+  'Anonymisation des donn\u00e9es\u2026',
+  '\u00c9valuation du Candidat A\u2026',
+  '\u00c9valuation du Candidat B\u2026',
+  '\u00c9valuation du Candidat C\u2026',
+  'Assemblage des r\u00e9sultats\u2026'
 ];
 let loadInterval;
 function startLoading() {
@@ -776,6 +776,119 @@ function stopLoading() {
 }
 
 // ═══════════════ MATCHING ═══════════════
+
+// Prompt INDIVIDUEL — 1 seul CV par appel, pas de confusion possible
+function buildSystemPrompt(valuesText) {
+  return `Tu es un évaluateur de recrutement STRICT et HONNÊTE. Tu analyses UN SEUL CV anonymisé contre une fiche de poste.
+
+═══ MÉTHODE : ANALYSE AVANT SCORING ═══
+1. EXTRAIS les compétences techniques EXIGÉES par la fiche de poste
+2. Identifie QUELLES compétences du poste ce candidat possède et lesquelles lui manquent
+3. Identifie les RED FLAGS (instabilité, licenciements, problèmes relationnels, missions courtes nombreuses)
+4. Identifie les SIGNAUX POSITIFS (engagement, bénévolat, tutorat, stabilité, progression)
+
+═══ PONDÉRATION (total = 100) ═══
+- Valeurs & engagement : 40 pts
+- Soft skills : 30 pts
+- Compétences techniques : 20 pts (non éliminatoire)
+- Signaux faibles : 10 pts
+
+═══ SCORING TECHNIQUE ═══
+Score = pourcentage des compétences EXIGÉES PAR LE POSTE que le candidat possède × 20.
+- 17-20 : Couvre 85%+ des exigences avec expérience prouvée
+- 12-16 : Couvre 60-84%
+- 6-11 : Couvre 30-59%
+- 0-5 : Moins de 30% — métier totalement différent
+
+RÈGLE D'OR : candidat d'un autre métier (boulangerie, commerce, nettoyage) sur un poste technique → 0-5/20 OBLIGATOIRE.
+
+═══ SCORING VALEURS & ENGAGEMENT ═══
+Signaux positifs : bénévolat, tutorat, formation de collègues, projets transversaux, stabilité (CDI longs), reconversion volontaire.
+Signaux négatifs : aucun engagement collectif, missions courtes sans progression, démissions fréquentes, centres d'intérêt exclusivement solitaires.
+PLAFOND : sans AUCUN signal d'engagement → maximum 15/40.
+
+═══ SCORING SOFT SKILLS ═══
+Pénalités obligatoires :
+- Remarque de manager sur la communication → -10 pts minimum
+- Licenciement pour différend relationnel → -8 pts
+- CDD non renouvelé pour intégration → -6 pts
+- 10+ missions courtes sans prolongation → signal de problème relationnel
+Signaux positifs : formateur, tuteur, délégué, collaboration, relation client, encadrement.
+
+═══ AI ACT ═══
+JAMAIS évaluer genre, sexe, âge, origine, nationalité, religion, handicap, situation familiale. Ignorer tout indice résiduel.
+
+${valuesText ? '═══ VALEURS DE L\u2019ENTREPRISE ═══\n' + valuesText : ''}
+
+Réponds UNIQUEMENT en JSON :
+{
+  "analyse": {
+    "competences_requises_poste": ["<comp1>", "<comp2>"],
+    "competences_couvertes": ["<...>"],
+    "competences_manquantes": ["<...>"],
+    "red_flags": ["<...>"],
+    "signaux_positifs": ["<...>"]
+  },
+  "score_global": <0-100>,
+  "verdict": "<Excellent|Très bon|Bon|Moyen|Faible>",
+  "scores": {
+    "valeurs_engagement": { "score": <0-40>, "justification": "<2-3 phrases>" },
+    "soft_skills": { "score": <0-30>, "justification": "<2-3 phrases, mentionne les red flags>" },
+    "competences_techniques": { "score": <0-20>, "justification": "<LISTE compétences couvertes et manquantes>" },
+    "signaux_faibles": { "score": <0-10>, "details": [ {"signal":"<titre>","explication":"<pourquoi>"} ] }
+  },
+  "points_forts": ["<...>"],
+  "points_vigilance": ["<...>"],
+  "synthese": "<3 phrases>"
+}`;
+}
+
+async function callAPI(systemPrompt, userPrompt) {
+  if (state.provider === 'anthropic') {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': state.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: state.model,
+        system: systemPrompt,
+        messages: [{ role:'user', content:userPrompt }],
+        temperature: 0.05,
+        max_tokens: 4000
+      })
+    });
+    if(!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || 'Erreur Anthropic HTTP '+resp.status);
+    }
+    const data = await resp.json();
+    const raw = data.content?.[0]?.text || '{}';
+    return JSON.parse(raw.replace(/^```json\s*/i,'').replace(/\s*```$/,'').trim());
+  } else {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+state.apiKey },
+      body: JSON.stringify({
+        model: state.model,
+        messages: [{ role:'system', content:systemPrompt },{ role:'user', content:userPrompt }],
+        temperature: 0.05,
+        max_tokens: 4000,
+        response_format: { type:'json_object' }
+      })
+    });
+    if(!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || 'Erreur OpenAI HTTP '+resp.status);
+    }
+    const data = await resp.json();
+    return JSON.parse(data.choices?.[0]?.message?.content || '{}');
+  }
+}
+
 async function runMatching() {
   if(!state.apiKey){ openSettings(); showToast('Configurez votre cl\u00e9 API.'); return; }
 
@@ -784,187 +897,55 @@ async function runMatching() {
 
   const anonJob = anon(state.job.text);
   const anonCVs = state.cvs.map(c => anon(c.text));
-
-  const systemPrompt = `Tu es un évaluateur de recrutement STRICT et HONNÊTE. Tu analyses des documents ANONYMISÉS.
-
-═══ MÉTHODE OBLIGATOIRE : ANALYSE AVANT SCORING ═══
-Tu DOIS d'abord remplir le champ "analyse_prealable" AVANT de scorer. Cette étape est OBLIGATOIRE.
-Dans cette analyse préalable :
-1. EXTRAIS la liste des compétences techniques EXIGÉES par la fiche de poste
-2. Pour CHAQUE candidat, identifie QUELLES compétences du poste il possède et lesquelles lui manquent
-3. Pour CHAQUE candidat, identifie les RED FLAGS (instabilité, licenciements, problèmes relationnels mentionnés, très nombreuses missions courtes)
-4. Pour CHAQUE candidat, identifie les SIGNAUX POSITIFS (engagement, bénévolat, tutorat, stabilité, progression)
-5. COMPARE les 3 candidats entre eux avant d'attribuer un seul score
-
-═══ PONDÉRATION (total = 100) ═══
-- Valeurs & engagement : 40 pts — bénévolat, stabilité, tutorat, mentorat, engagement collectif, projets transversaux
-- Soft skills : 30 pts — communication, esprit d'équipe, adaptabilité, fiabilité. ATTENTION : un candidat avec des remarques négatives de managers sur sa communication ou son intégration doit être pénalisé. Un candidat licencié pour problèmes relationnels ou qui démissionne fréquemment = score soft skills BAS.
-- Compétences techniques : 20 pts — adéquation STRICTE avec les exigences du poste (voir règles ci-dessous)
-- Signaux faibles : 10 pts — bonus pour éléments cachés valorisables
-
-═══ SCORING TECHNIQUE : RÈGLES STRICTES ═══
-Le score technique mesure UNIQUEMENT combien des compétences EXIGÉES PAR LE POSTE le candidat possède.
-- ÉTAPE 1 : Liste les compétences techniques de la fiche de poste
-- ÉTAPE 2 : Pour chaque candidat, coche celles qu'il a et barre celles qu'il n'a pas
-- ÉTAPE 3 : Score = pourcentage de couverture × 20
-
-GRILLE :
-- 17-20 : Couvre 85%+ des exigences techniques du poste avec expérience prouvée
-- 12-16 : Couvre 60-84% des exigences
-- 6-11 : Couvre 30-59% — lacunes significatives sur des compétences clés
-- 0-5 : Couvre moins de 30% — métier différent, compétences hors sujet pour ce poste
-
-RÈGLE D'OR : Si le candidat vient d'un tout autre métier (ex: boulangerie, commerce, nettoyage) et que le poste est technique (maintenance, informatique, ingénierie), le score technique est OBLIGATOIREMENT entre 0 et 5, MÊME s'il a quelques compétences transversales.
-
-COHÉRENCE COMPARATIVE OBLIGATOIRE :
-- Si le candidat A maîtrise 3 automates Siemens et que le candidat B n'a jamais touché un automate → A doit avoir un score technique BEAUCOUP PLUS ÉLEVÉ que B
-- Les scores techniques des 3 candidats doivent refléter les ÉCARTS RÉELS entre leurs compétences par rapport au poste
-
-═══ SCORING VALEURS & ENGAGEMENT : RÈGLES STRICTES ═══
-SIGNAUX POSITIFS (qui augmentent le score) :
-- Bénévolat, engagement associatif
-- Tutorat, formation de collègues ou d'apprentis
-- Participation à des groupes de travail sécurité, qualité, TPM
-- Stabilité dans les postes (CDI longs = signal d'engagement)
-- Reconversion volontaire (courage, adaptabilité)
-- Missions réalisées dans l'entreprise recruteuse ou son secteur
-
-SIGNAUX NÉGATIFS (qui baissent le score) :
-- Aucune mention d'engagement collectif, bénévolat, ou tutorat = score bas, pas moyen
-- Très nombreuses missions courtes sans progression = instabilité
-- Démissions fréquentes pour des motifs vagues = signal de désengagement
-- Centres d'intérêt exclusivement solitaires sans aucune dimension collective
-
-Un candidat sans AUCUN signal d'engagement ne peut PAS avoir plus de 15/40 en valeurs.
-
-═══ SCORING SOFT SKILLS : RÈGLES STRICTES ═══
-RED FLAGS à pénaliser fortement :
-- Remarques explicites de managers sur des problèmes de communication → -10 pts minimum
-- Licenciement pour différend relationnel → -8 pts minimum
-- CDD non renouvelés pour raisons d'intégration → -6 pts minimum
-- 10+ missions courtes consécutives sans être jamais prolongé → signal de problème relationnel
-
-SIGNAUX POSITIFS :
-- Formateur, tuteur, mentor
-- Rôle de délégué ou référent
-- Collaboration mentionnée positivement
-- Relation client
-- Encadrement d'équipe
-
-═══ AI ACT — RÈGLES ABSOLUES ═══
-JAMAIS évaluer/inférer : genre, sexe, âge, origine, nationalité, religion, orientation sexuelle, handicap, situation familiale, apparence, lieu de résidence.
-Ignorer tout indice résiduel.
-
-═══ FORMAT DE RÉPONSE (JSON UNIQUEMENT) ═══
-{
-  "analyse_prealable": {
-    "competences_requises_poste": ["<comp1>", "<comp2>", "..."],
-    "mapping_candidats": {
-      "A": { "competences_couvertes": ["..."], "competences_manquantes": ["..."], "red_flags": ["..."], "signaux_positifs": ["..."] },
-      "B": { "competences_couvertes": ["..."], "competences_manquantes": ["..."], "red_flags": ["..."], "signaux_positifs": ["..."] },
-      "C": { "competences_couvertes": ["..."], "competences_manquantes": ["..."], "red_flags": ["..."], "signaux_positifs": ["..."] }
-    }
-  },
-  "candidats": [
-    {
-      "id": "A",
-      "score_global": <0-100>,
-      "verdict": "<Excellent|Très bon|Bon|Moyen|Faible>",
-      "scores": {
-        "valeurs_engagement": { "score": <0-40>, "justification": "<2-3 phrases>" },
-        "soft_skills": { "score": <0-30>, "justification": "<2-3 phrases. Mentionne les red flags s'il y en a.>" },
-        "competences_techniques": { "score": <0-20>, "justification": "<LISTE les compétences du poste couvertes et non couvertes.>" },
-        "signaux_faibles": { "score": <0-10>, "details": [ {"signal":"<titre>","explication":"<pourquoi pertinent>"} ] }
-      },
-      "points_forts": ["<...>"],
-      "points_vigilance": ["<...>"],
-      "synthese": "<3 phrases>"
-    }
-  ],
-  "classement": ["A","B","C"],
-  "recommandation_finale": "<4-5 phrases comparatives>"
-}`;
-
-  const userPrompt = `=== FICHE DE POSTE (anonymisée) ===
-${anonJob.substring(0,8000)}
-
-=== VALEURS & CULTURE D'ENTREPRISE ===
-${values || 'Non renseigné — évalue l\'engagement et le savoir-être de manière générale.'}
-
-=== CV CANDIDAT A (anonymisé) ===
-${anonCVs[0].substring(0,12000)}
-
-=== CV CANDIDAT B (anonymisé) ===
-${anonCVs[1].substring(0,12000)}
-
-=== CV CANDIDAT C (anonymisé) ===
-${anonCVs[2].substring(0,12000)}
-
-INSTRUCTIONS FINALES — À RESPECTER IMPÉRATIVEMENT :
-1. Remplis d'abord analyse_prealable AVANT de scorer. Liste les compétences du poste, puis mappe chaque candidat.
-2. Score technique = adéquation au POSTE, pas compétences générales. Un professionnel d'un autre métier = 0-5/20 max.
-3. Un candidat avec des licenciements, remarques négatives de managers, ou 10+ missions courtes = soft skills BAS (< 15/30).
-4. Un candidat sans aucun bénévolat, tutorat, ou engagement collectif = valeurs BASSES (< 15/40).
-5. COMPARE les 3 entre eux : si B a 3× plus de compétences techniques pertinentes que A, l'écart de score doit être MASSIF.
-6. Utilise TOUTE l'échelle. Des scores de 2, 5, 8, 12, 19 sont tous valides.`;
+  const labels = ['A','B','C'];
+  const sysPrompt = buildSystemPrompt(values);
 
   try {
-    let result;
+    // ═══ 3 APPELS INDIVIDUELS — 1 CV par appel ═══
+    // Chaque appel ne voit qu'UN SEUL CV → pas de confusion entre candidats
+    const promises = anonCVs.map((cv, i) => {
+      const userPrompt = `=== FICHE DE POSTE ===
+${anonJob.substring(0,8000)}
 
-    if (state.provider === 'anthropic') {
-      // ═══ ANTHROPIC / CLAUDE API ═══
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'x-api-key': state.apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: state.model,
-          system: systemPrompt,
-          messages: [{ role:'user', content:userPrompt }],
-          temperature: 0.05,
-          max_tokens: 8000
-        })
-      });
+=== CV DU CANDIDAT (anonymisé) ===
+${cv.substring(0,15000)}
 
-      if(!resp.ok) {
-        const err = await resp.json().catch(()=>({}));
-        throw new Error(err.error?.message || 'Erreur Anthropic HTTP '+resp.status);
-      }
+Évalue CE candidat par rapport à la fiche de poste ci-dessus. Sois STRICT et HONNÊTE. Utilise toute l'échelle (0-20 en technique, 0-40 en valeurs, etc.). Un score de 3 ou 5 est parfaitement valide.`;
+      return callAPI(sysPrompt, userPrompt);
+    });
 
-      const data = await resp.json();
-      const raw = data.content?.[0]?.text || '{}';
-      // Claude peut entourer le JSON de ```json ... ``` — on nettoie
-      const cleaned = raw.replace(/^```json\s*/i,'').replace(/\s*```$/,'').trim();
-      result = JSON.parse(cleaned);
+    const results = await Promise.all(promises);
 
-    } else {
-      // ═══ OPENAI API ═══
-      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+state.apiKey },
-        body: JSON.stringify({
-          model: state.model,
-          messages: [{ role:'system', content:systemPrompt },{ role:'user', content:userPrompt }],
-          temperature: 0.05,
-          max_tokens: 8000,
-          response_format: { type:'json_object' }
-        })
-      });
+    // ═══ ASSEMBLAGE CÔTÉ CLIENT ═══
+    const candidats = results.map((r, i) => ({
+      id: labels[i],
+      score_global: r.score_global || 0,
+      verdict: r.verdict || '',
+      scores: r.scores || {},
+      points_forts: r.points_forts || [],
+      points_vigilance: r.points_vigilance || [],
+      synthese: r.synthese || ''
+    }));
 
-      if(!resp.ok) {
-        const err = await resp.json().catch(()=>({}));
-        throw new Error(err.error?.message || 'Erreur OpenAI HTTP '+resp.status);
-      }
+    // Classement par score décroissant
+    const classement = [...candidats].sort((a,b) => b.score_global - a.score_global).map(c => c.id);
 
-      const data = await resp.json();
-      result = JSON.parse(data.choices?.[0]?.message?.content || '{}');
-    }
+    // Génération de la recommandation côté client
+    const sorted = classement.map(id => candidats.find(c=>c.id===id));
+    const reco = 'Le candidat ' + sorted[0].id + ' (' + sorted[0].score_global + '/100 — ' + sorted[0].verdict + ') '
+      + 'se d\u00e9tache avec le meilleur score global. '
+      + 'Le candidat ' + sorted[1].id + ' (' + sorted[1].score_global + '/100) arrive en deuxi\u00e8me position. '
+      + 'Le candidat ' + sorted[2].id + ' (' + sorted[2].score_global + '/100) est en troisi\u00e8me position. '
+      + 'Rappel : cet outil est une aide \u00e0 la d\u00e9cision, pas une d\u00e9cision automatis\u00e9e. L\u2019humain reste d\u00e9cisionnaire.';
+
+    const finalResult = {
+      candidats,
+      classement,
+      recommandation_finale: reco
+    };
+
     stopLoading();
-    renderResults(result);
+    renderResults(finalResult);
 
   } catch(e) {
     stopLoading();
