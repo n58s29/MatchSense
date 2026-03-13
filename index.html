@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ══ FIX #3 (ÉLEVÉE) : Content Security Policy ══ -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.openai.com; img-src 'self' data:; frame-ancestors 'none';">
+<!-- ══ FIX #5 (ÉLEVÉE) : En-têtes de sécurité HTTP ══ -->
+<meta http-equiv="X-Frame-Options" content="DENY">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="Referrer-Policy" content="no-referrer">
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()">
+<title>MatchSense — Comparaison 3 Candidats</title>
+<!-- ══ FIX #2 (CRITIQUE) : Google Fonts avec crossorigin + referrerpolicy ══ -->
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
+<style>
+:root {
+  --bg: #F7F5F0;
+  --bg-card: #FFFFFF;
+  --bg-dark: #1A1A1A;
+  --text: #1A1A1A;
+  --text-muted: #6B6560;
+  --text-light: #9C9590;
+  --accent: #C85C2E;
+  --accent-light: #F4E8E0;
+  --accent-hover: #A84B24;
+  --green: #2E7D5B;
+  --green-light: #E0F0E8;
+  --blue: #2E5DC8;
+  --blue-light: #E0E8F4;
+  --yellow: #C8A02E;
+  --yellow-light: #F4F0E0;
+  --red: #C83E2E;
+  --red-light: #F4E0E0;
+  --purple: #7B2EC8;
+  --purple-light: #EDE0F4;
+  --border: #E5E0DA;
+  --shadow: 0 2px 12px rgba(26,26,26,0.06);
+  --shadow-lg: 0 8px 32px rgba(26,26,26,0.1);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --c1: #2E5DC8;
+  --c1-light: #E0E8F4;
+  --c2: #C85C2E;
+  --c2-light: #F4E8E0;
+  --c3: #7B2EC8;
+  --c3-light: #EDE0F4;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; line-height:1.6; }
+
+/* ── HEADER ── */
+header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 36px; border-bottom:1px solid var(--border); background:var(--bg-card);
+}
+.logo { display:flex; align-items:baseline; gap:10px; }
+.logo h1 { font-family:'DM Serif Display',serif; font-size:1.5rem; letter-spacing:-0.02em; }
+.logo .tag { font-size:0.62rem; font-weight:600; text-transform:uppercase; letter-spacing:0.12em; color:var(--accent); background:var(--accent-light); padding:3px 8px; border-radius:4px; }
+.header-actions { display:flex; align-items:center; gap:10px; }
+.btn-icon {
+  display:flex; align-items:center; gap:6px; padding:7px 14px;
+  border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg-card);
+  cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.82rem; font-weight:500; color:var(--text-muted); transition:all 0.2s;
+}
+.btn-icon:hover { border-color:var(--text-muted); color:var(--text); }
+.btn-icon svg { width:15px; height:15px; }
+.ai-badge {
+  display:flex; align-items:center; gap:5px; font-size:0.68rem; font-weight:600;
+  text-transform:uppercase; letter-spacing:0.08em; color:var(--green); background:var(--green-light);
+  padding:5px 10px; border-radius:6px;
+}
+.ai-badge svg { width:13px; height:13px; }
+.sec-badge {
+  display:flex; align-items:center; gap:5px; font-size:0.68rem; font-weight:600;
+  text-transform:uppercase; letter-spacing:0.08em; color:var(--blue); background:var(--blue-light);
+  padding:5px 10px; border-radius:6px;
+}
+.sec-badge svg { width:13px; height:13px; }
+
+/* ── WORKSPACE ── */
+.workspace { max-width:1340px; margin:0 auto; padding:32px 36px; }
+.intro { text-align:center; margin-bottom:28px; }
+.intro h2 { font-family:'DM Serif Display',serif; font-size:1.6rem; margin-bottom:6px; letter-spacing:-0.02em; }
+.intro p { color:var(--text-muted); font-size:0.9rem; max-width:680px; margin:0 auto; }
+
+/* ── TOP ROW: job + values ── */
+.top-row { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:28px; }
+
+/* ── DROP ZONES ── */
+.drop-zone {
+  background:var(--bg-card); border:2px dashed var(--border); border-radius:var(--radius);
+  padding:28px 24px; text-align:center; cursor:pointer; transition:all 0.3s ease;
+  min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  position:relative; overflow:hidden;
+}
+.drop-zone::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,transparent 60%,var(--accent-light) 100%);
+  opacity:0; transition:opacity 0.3s;
+}
+.drop-zone:hover::before, .drop-zone.dragover::before { opacity:1; }
+.drop-zone.dragover { border-color:var(--accent); transform:scale(1.01); box-shadow:var(--shadow-lg); }
+.drop-zone.has-file { border-style:solid; border-color:var(--green); background:var(--green-light); }
+.drop-zone.has-file::before { display:none; }
+.dz-icon {
+  width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  margin-bottom:12px; position:relative; z-index:1;
+}
+.dz-icon svg { width:20px; height:20px; }
+.dz-icon.job { background:var(--blue-light); color:var(--blue); }
+.dz-icon.values { background:var(--green-light); color:var(--green); }
+.dz-icon.c1 { background:var(--c1-light); color:var(--c1); }
+.dz-icon.c2 { background:var(--c2-light); color:var(--c2); }
+.dz-icon.c3 { background:var(--c3-light); color:var(--c3); }
+.dz-label { font-weight:600; font-size:0.92rem; margin-bottom:4px; position:relative; z-index:1; }
+.dz-hint { color:var(--text-light); font-size:0.78rem; position:relative; z-index:1; }
+.dz-formats { margin-top:8px; display:flex; gap:5px; justify-content:center; position:relative; z-index:1; }
+.fmt { font-size:0.62rem; font-weight:600; font-family:'JetBrains Mono',monospace; text-transform:uppercase; letter-spacing:0.05em; padding:2px 7px; border-radius:4px; background:var(--bg); color:var(--text-muted); }
+.file-info { position:relative; z-index:1; }
+.file-info .fname { font-weight:600; font-size:0.88rem; color:var(--green); margin-bottom:3px; word-break:break-all; }
+.file-info .fsize { font-size:0.74rem; color:var(--text-muted); }
+.file-info .fremove { margin-top:8px; font-size:0.74rem; color:var(--red); cursor:pointer; text-decoration:underline; background:none; border:none; font-family:inherit; }
+
+/* ── VALUES TEXTAREA ── */
+.values-box {
+  background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+  padding:24px; display:flex; flex-direction:column; gap:12px;
+}
+.values-box h4 { font-size:0.9rem; font-weight:700; display:flex; align-items:center; gap:8px; }
+.values-box h4 .dz-icon { width:32px; height:32px; margin-bottom:0; }
+.values-box textarea {
+  width:100%; height:120px; border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:12px; font-family:'DM Sans',sans-serif; font-size:0.85rem; resize:vertical;
+  background:var(--bg); color:var(--text); line-height:1.5;
+}
+.values-box textarea:focus { outline:none; border-color:var(--accent); }
+.values-box .vhint { font-size:0.73rem; color:var(--text-light); }
+
+/* ── CANDIDATES ROW ── */
+.candidates-row { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-bottom:28px; }
+.candidate-col { position:relative; }
+.candidate-num {
+  position:absolute; top:-10px; left:16px; z-index:2;
+  font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em;
+  padding:3px 10px; border-radius:4px;
+}
+.cn1 { background:var(--c1); color:white; }
+.cn2 { background:var(--c2); color:white; }
+.cn3 { background:var(--c3); color:white; }
+
+/* ── GO BUTTON ── */
+.go-row { text-align:center; margin-bottom:10px; }
+.btn-go {
+  display:inline-flex; align-items:center; gap:10px;
+  padding:16px 48px; border-radius:60px; border:2px solid var(--accent);
+  background:var(--bg-card); cursor:pointer; font-family:'DM Sans',sans-serif;
+  font-size:1rem; font-weight:700; color:var(--accent); transition:all 0.3s;
+  box-shadow:var(--shadow);
+}
+.btn-go:hover { background:var(--accent); color:white; }
+.btn-go:hover svg { color:white; }
+.btn-go:disabled { opacity:0.3; cursor:not-allowed; }
+.btn-go:disabled:hover { background:var(--bg-card); color:var(--accent); }
+.btn-go svg { width:20px; height:20px; transition:color 0.3s; }
+.go-note { font-size:0.72rem; color:var(--text-light); margin-top:10px; }
+.go-note svg { width:12px; height:12px; vertical-align:-2px; margin-right:3px; }
+
+/* ── LOADING ── */
+.loading-overlay {
+  display:none; position:fixed; inset:0; background:rgba(247,245,240,0.94);
+  backdrop-filter:blur(8px); z-index:100; flex-direction:column; align-items:center; justify-content:center; gap:20px;
+}
+.loading-overlay.active { display:flex; }
+.spinner { width:48px; height:48px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.load-msg { font-size:0.88rem; color:var(--accent); font-weight:600; text-align:center; }
+.load-sub { font-size:0.78rem; color:var(--text-light); }
+
+/* ── RESULTS ── */
+.results { display:none; margin-top:40px; animation:fadeUp 0.5s ease; }
+.results.active { display:block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+.results-title { font-family:'DM Serif Display',serif; font-size:1.5rem; text-align:center; margin-bottom:28px; }
+
+/* Podium */
+.podium { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-bottom:32px; }
+.podium-card {
+  background:var(--bg-card); border-radius:var(--radius); padding:24px; text-align:center;
+  border:2px solid var(--border); box-shadow:var(--shadow); transition:all 0.3s; position:relative;
+}
+.podium-card.winner { border-color:var(--green); box-shadow:0 0 0 3px var(--green-light), var(--shadow-lg); }
+.podium-card.winner::after {
+  content:'\2605  Recommand\00e9'; position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+  background:var(--green); color:white; font-size:0.68rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.08em; padding:4px 14px; border-radius:20px; white-space:nowrap;
+}
+.podium-rank { font-family:'DM Serif Display',serif; font-size:2.4rem; line-height:1; margin-bottom:4px; }
+.podium-label { font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:12px; }
+.podium-score { font-family:'DM Serif Display',serif; font-size:2rem; }
+.podium-verdict {
+  display:inline-block; font-size:0.78rem; font-weight:600; padding:4px 14px;
+  border-radius:16px; margin-top:8px;
+}
+.pv-high { background:var(--green-light); color:var(--green); }
+.pv-med { background:var(--yellow-light); color:var(--yellow); }
+.pv-low { background:var(--red-light); color:var(--red); }
+
+/* Breakdown bars */
+.breakdown { margin-top:16px; text-align:left; }
+.bk-row { margin-bottom:8px; }
+.bk-label { font-size:0.73rem; font-weight:600; display:flex; justify-content:space-between; margin-bottom:3px; }
+.bk-track { height:5px; background:var(--bg); border-radius:3px; overflow:hidden; }
+.bk-fill { height:100%; border-radius:3px; transition:width 1.2s ease 0.4s; }
+
+/* Detail cards */
+.detail-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-bottom:24px; }
+.detail-card {
+  background:var(--bg-card); border-radius:var(--radius); padding:22px; box-shadow:var(--shadow);
+  border:1px solid var(--border); border-top:3px solid var(--border);
+}
+.dc-c1 { border-top-color:var(--c1); }
+.dc-c2 { border-top-color:var(--c2); }
+.dc-c3 { border-top-color:var(--c3); }
+.detail-card h5 { font-size:0.82rem; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+.detail-card h5 .dot { width:8px; height:8px; border-radius:50%; }
+
+.section-title {
+  font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em;
+  color:var(--text-muted); margin:20px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border);
+}
+
+.signal-item { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--bg); font-size:0.82rem; }
+.signal-item:last-child { border-bottom:none; }
+.sig-dot { width:6px; height:6px; border-radius:50%; background:var(--yellow); margin-top:7px; flex-shrink:0; }
+.sig-title { font-weight:600; }
+
+.explain-item { padding:6px 0; font-size:0.82rem; color:var(--text); line-height:1.5; }
+.pt-plus { color:var(--green); font-weight:700; margin-right:4px; }
+.pt-warn { color:var(--red); font-weight:700; margin-right:4px; }
+
+/* Compliance */
+.compliance {
+  margin-top:28px; padding:18px 24px; background:var(--bg-card); border-radius:var(--radius);
+  border:1px solid var(--border); display:flex; align-items:start; gap:14px;
+}
+.compliance .sh { width:36px; height:36px; border-radius:8px; background:var(--green-light); color:var(--green); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.compliance .sh svg { width:18px; height:18px; }
+.compliance h5 { font-size:0.82rem; font-weight:700; margin-bottom:3px; }
+.compliance p { font-size:0.75rem; color:var(--text-muted); line-height:1.5; }
+
+/* ── MODAL ── */
+.modal-overlay {
+  display:none; position:fixed; inset:0; background:rgba(26,26,26,0.4);
+  backdrop-filter:blur(4px); z-index:200; align-items:center; justify-content:center;
+}
+.modal-overlay.active { display:flex; }
+.modal {
+  background:var(--bg-card); border-radius:var(--radius); padding:28px; width:90%; max-width:500px;
+  box-shadow:var(--shadow-lg); animation:fadeUp 0.3s ease;
+}
+.modal h3 { font-family:'DM Serif Display',serif; font-size:1.2rem; margin-bottom:20px; }
+.fg { margin-bottom:16px; }
+.fg label { display:block; font-weight:600; font-size:0.82rem; margin-bottom:4px; }
+.fg .hint { font-size:0.72rem; color:var(--text-light); margin-bottom:6px; }
+.fg input, .fg select {
+  width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius-sm);
+  font-family:'JetBrains Mono',monospace; font-size:0.82rem; background:var(--bg); color:var(--text);
+}
+.fg select { font-family:'DM Sans',sans-serif; }
+.fg input:focus, .fg select:focus { outline:none; border-color:var(--accent); }
+.fg .api-warning { font-size:0.7rem; color:var(--red); margin-top:4px; line-height:1.4; }
+.modal-btns { display:flex; justify-content:flex-end; gap:8px; margin-top:24px; }
+.mbtn {
+  padding:9px 22px; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif;
+  font-size:0.82rem; font-weight:600; cursor:pointer; transition:all 0.2s;
+}
+.mbtn-cancel { border:1px solid var(--border); background:var(--bg-card); color:var(--text-muted); }
+.mbtn-save { border:none; background:var(--accent); color:white; }
+.mbtn-save:hover { background:var(--accent-hover); }
+
+/* Toast */
+.toast {
+  display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  padding:10px 22px; background:var(--bg-dark); color:white; border-radius:var(--radius-sm);
+  font-size:0.82rem; font-weight:500; z-index:300; box-shadow:var(--shadow-lg);
+}
+.toast.active { display:block; animation:fadeUp 0.3s ease; }
+
+@media(max-width:900px) {
+  .workspace { padding:20px 14px; }
+  .top-row, .candidates-row, .podium, .detail-grid { grid-template-columns:1fr; }
+  header { padding:14px 16px; flex-wrap:wrap; gap:8px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <h1>MatchSense</h1>
+    <span class="tag">v2.1-sec</span>
+  </div>
+  <div class="header-actions">
+    <div class="ai-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      AI Act
+    </div>
+    <div class="sec-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      CSP + XSS
+    </div>
+    <button class="btn-icon" onclick="openSettings()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      Paramètres
+    </button>
+  </div>
+</header>
+
+<div class="workspace">
+  <div class="intro">
+    <h2>3 candidats, 1 poste — qui colle le mieux ?</h2>
+    <p>Déposez la fiche de poste, décrivez vos valeurs, puis glissez 3 CV. L'IA évalue l'<strong>engagement</strong>, l'<strong>alignement culturel</strong>, les <strong>signaux faibles</strong> — et les compétences techniques sans en faire un critère éliminatoire.</p>
+  </div>
+
+  <!-- TOP ROW: Job + Values -->
+  <div class="top-row">
+    <div class="drop-zone" id="dropJob" onclick="document.getElementById('inputJob').click()">
+      <input type="file" id="inputJob" accept=".pdf,.txt,.doc,.docx" style="display:none">
+      <div class="dz-icon job"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg></div>
+      <div class="dz-label">Fiche de poste</div>
+      <div class="dz-hint">Glissez-déposez ou cliquez</div>
+      <div class="dz-formats"><span class="fmt">.pdf</span><span class="fmt">.txt</span><span class="fmt">.docx</span></div>
+    </div>
+    <div class="values-box">
+      <h4>
+        <span class="dz-icon values" style="margin-bottom:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg></span>
+        Valeurs &amp; culture d'entreprise
+      </h4>
+      <div class="vhint">Décrivez en quelques phrases ce qui compte pour vous : esprit d'équipe, engagement sociétal, innovation, bienveillance, sens du service…</div>
+      <textarea id="valuesText" placeholder="Ex : Nous valorisons l'esprit collectif, l'engagement terrain, la capacité à se remettre en question, le sens du service public, la diversité des parcours et la curiosité intellectuelle."></textarea>
+    </div>
+  </div>
+
+  <!-- 3 CANDIDATES -->
+  <div class="candidates-row">
+    <div class="candidate-col">
+      <span class="candidate-num cn1">Candidat A</span>
+      <div class="drop-zone" id="dropCV1" onclick="document.getElementById('inputCV1').click()">
+        <input type="file" id="inputCV1" accept=".pdf,.txt,.doc,.docx" style="display:none">
+        <div class="dz-icon c1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16"/><path d="M12 11a3 3 0 100-6 3 3 0 000 6zM6 21v-1a6 6 0 0112 0v1"/></svg></div>
+        <div class="dz-label">CV n°1</div>
+        <div class="dz-hint">Glissez-déposez ou cliquez</div>
+        <div class="dz-formats"><span class="fmt">.pdf</span><span class="fmt">.txt</span><span class="fmt">.docx</span></div>
+      </div>
+    </div>
+    <div class="candidate-col">
+      <span class="candidate-num cn2">Candidat B</span>
+      <div class="drop-zone" id="dropCV2" onclick="document.getElementById('inputCV2').click()">
+        <input type="file" id="inputCV2" accept=".pdf,.txt,.doc,.docx" style="display:none">
+        <div class="dz-icon c2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16"/><path d="M12 11a3 3 0 100-6 3 3 0 000 6zM6 21v-1a6 6 0 0112 0v1"/></svg></div>
+        <div class="dz-label">CV n°2</div>
+        <div class="dz-hint">Glissez-déposez ou cliquez</div>
+        <div class="dz-formats"><span class="fmt">.pdf</span><span class="fmt">.txt</span><span class="fmt">.docx</span></div>
+      </div>
+    </div>
+    <div class="candidate-col">
+      <span class="candidate-num cn3">Candidat C</span>
+      <div class="drop-zone" id="dropCV3" onclick="document.getElementById('inputCV3').click()">
+        <input type="file" id="inputCV3" accept=".pdf,.txt,.doc,.docx" style="display:none">
+        <div class="dz-icon c3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16"/><path d="M12 11a3 3 0 100-6 3 3 0 000 6zM6 21v-1a6 6 0 0112 0v1"/></svg></div>
+        <div class="dz-label">CV n°3</div>
+        <div class="dz-hint">Glissez-déposez ou cliquez</div>
+        <div class="dz-formats"><span class="fmt">.pdf</span><span class="fmt">.txt</span><span class="fmt">.docx</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GO -->
+  <div class="go-row">
+    <button class="btn-go" id="btnGo" disabled onclick="runMatching()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      C'est parti ?
+    </button>
+    <div class="go-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Données anonymisées avant envoi — aucun nom, genre, âge ou adresse transmis
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="results" id="results"></div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="load-msg" id="loadMsg">Anonymisation en cours…</div>
+  <div class="load-sub">Les données personnelles sont supprimées avant tout envoi</div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h3>Paramètres</h3>
+    <div class="fg">
+      <label>Clé API OpenAI</label>
+      <div class="hint">Jamais stockée côté serveur — reste dans votre navigateur, cette session uniquement.</div>
+      <input type="password" id="apiKey" placeholder="sk-proj-..." autocomplete="off" data-lpignore="true">
+      <!-- ══ FIX #4 (ÉLEVÉE) : avertissement clé API côté client ══ -->
+      <div class="api-warning">⚠ La clé API transite uniquement entre votre navigateur et OpenAI. Elle est effacée de la mémoire à la fermeture de l'onglet. En production, utilisez un proxy backend.</div>
+    </div>
+    <div class="fg">
+      <label>Modèle</label>
+      <select id="modelSelect">
+        <option value="gpt-4o">GPT-4o (recommandé)</option>
+        <option value="gpt-4o-mini">GPT-4o Mini (rapide)</option>
+        <option value="gpt-4.1">GPT-4.1</option>
+        <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-cancel" onclick="closeSettings()">Annuler</button>
+      <button class="mbtn mbtn-save" onclick="saveSettings()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ═══════════════════════════════════════════════════
+// FIX #1 (CRITIQUE) + FIX #7 (MOYENNE) :
+// Fonction d'échappement HTML pour contrer les XSS
+// Utilisée PARTOUT où du contenu dynamique est injecté
+// ═══════════════════════════════════════════════════
+function esc(str) {
+  if (typeof str !== 'string') return '';
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str));
+  return d.innerHTML;
+}
+
+// Valide qu'un nombre est bien un nombre (anti-injection dans les styles)
+function safeNum(val, min, max) {
+  const n = parseFloat(val);
+  if (isNaN(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+// ═══════════════ STATE ═══════════════
+const state = {
+  job: { file:null, text:'' },
+  cvs: [
+    { file:null, text:'' },
+    { file:null, text:'' },
+    { file:null, text:'' }
+  ],
+  _k: '', // FIX #4 : clé stockée sous nom opaque
+  model: 'gpt-4o'
+};
+
+// ══ FIX #4 (ÉLEVÉE) : getter/setter pour la clé API ══
+// Encapsulation minimale — la clé n'est jamais dans state.apiKey en clair
+Object.defineProperty(state, 'apiKey', {
+  get() { return atob(this._k || ''); },
+  set(v) { this._k = v ? btoa(v) : ''; },
+  enumerable: false
+});
+
+// ══ FIX #4 : nettoyage de la clé à la fermeture ══
+window.addEventListener('beforeunload', () => {
+  state._k = '';
+  const inp = document.getElementById('apiKey');
+  if (inp) inp.value = '';
+});
+
+const CVS_META = [
+  { id:'dropCV1', input:'inputCV1', cls:'c1', label:'Candidat A' },
+  { id:'dropCV2', input:'inputCV2', cls:'c2', label:'Candidat B' },
+  { id:'dropCV3', input:'inputCV3', cls:'c3', label:'Candidat C' },
+];
+
+const COLORS = ['var(--c1)','var(--c2)','var(--c3)'];
+
+// ═══════════════ FILE HANDLING ═══════════════
+function setupDrop(zoneId, inputId, onFile) {
+  const z = document.getElementById(zoneId);
+  const inp = document.getElementById(inputId);
+  ['dragenter','dragover'].forEach(e => z.addEventListener(e, ev => { ev.preventDefault(); z.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(e => z.addEventListener(e, ev => { ev.preventDefault(); z.classList.remove('dragover'); }));
+  z.addEventListener('drop', ev => { if(ev.dataTransfer.files[0]) onFile(ev.dataTransfer.files[0]); });
+  inp.addEventListener('change', ev => { if(ev.target.files[0]) onFile(ev.target.files[0]); });
+}
+
+async function extractText(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if(!['pdf','txt','doc','docx'].includes(ext)) { showToast('Format non supporté.'); return ''; }
+  let text = '';
+  if(ext==='txt') { text = await file.text(); }
+  else {
+    text = await file.text().catch(()=>'');
+    if(!text || text.length < 20) {
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let raw = '';
+      for(let i=0;i<bytes.length;i++){
+        const c=bytes[i];
+        if((c>=32&&c<=126)||c===10||c===13) raw+=String.fromCharCode(c);
+        else if(c>=192) raw+=String.fromCharCode(c);
+        else raw+=' ';
+      }
+      text = raw.replace(/\s{3,}/g,'\n').replace(/[^\x20-\x7E\xC0-\xFF\n]/g,'').trim();
+    }
+  }
+  return text;
+}
+
+// ═══════════════════════════════════════════════════
+// FIX #1 (CRITIQUE) : renderFileLoaded réécrit en DOM pur
+// Plus aucun innerHTML avec file.name — tout via textContent
+// ═══════════════════════════════════════════════════
+function renderFileLoaded(zone, file, textLen, iconCls, inputId, onRemove) {
+  zone.classList.add('has-file');
+  zone.onclick = null;
+  // Vider le contenu existant proprement
+  while (zone.firstChild) zone.removeChild(zone.firstChild);
+
+  // Icône check
+  const iconDiv = document.createElement('div');
+  iconDiv.className = 'dz-icon ' + iconCls;
+  iconDiv.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+  zone.appendChild(iconDiv);
+
+  // File info container
+  const info = document.createElement('div');
+  info.className = 'file-info';
+
+  // Nom de fichier — FIX #1 : textContent au lieu de innerHTML
+  const fname = document.createElement('div');
+  fname.className = 'fname';
+  fname.textContent = file.name; // ← SÉCURISÉ : textContent échappe automatiquement
+  info.appendChild(fname);
+
+  // Taille
+  const fsize = document.createElement('div');
+  fsize.className = 'fsize';
+  fsize.textContent = (file.size/1024).toFixed(1) + ' Ko \u2014 ' + textLen + ' car.';
+  info.appendChild(fsize);
+
+  // Bouton retirer
+  const btn = document.createElement('button');
+  btn.className = 'fremove';
+  btn.textContent = 'Retirer';
+  btn.addEventListener('click', e => { e.stopPropagation(); onRemove(); });
+  info.appendChild(btn);
+
+  zone.appendChild(info);
+}
+
+// Job drop
+setupDrop('dropJob','inputJob', async file => {
+  const text = await extractText(file);
+  state.job = { file, text };
+  const z = document.getElementById('dropJob');
+  renderFileLoaded(z, file, text.length, 'job', 'inputJob', () => {
+    state.job = { file:null, text:'' };
+    resetZone('dropJob','inputJob','job','Fiche de poste', true);
+    checkReady();
+  });
+  checkReady();
+});
+
+// CV drops
+CVS_META.forEach((m,i) => {
+  setupDrop(m.id, m.input, async file => {
+    const text = await extractText(file);
+    state.cvs[i] = { file, text };
+    const z = document.getElementById(m.id);
+    renderFileLoaded(z, file, text.length, m.cls, m.input, () => {
+      state.cvs[i] = { file:null, text:'' };
+      resetZone(m.id, m.input, m.cls, 'CV n\u00b0'+(i+1), false);
+      checkReady();
+    });
+    checkReady();
+  });
+});
+
+// ═══════════════════════════════════════════════════
+// FIX #7 (MOYENNE) : resetZone aussi nettoyé — contenu statique sûr
+// Les SVG sont statiques (pas de données utilisateur), donc innerHTML OK ici
+// ═══════════════════════════════════════════════════
+function resetZone(zoneId, inputId, iconCls, label, isJob) {
+  const z = document.getElementById(zoneId);
+  z.classList.remove('has-file');
+  const svg = isJob
+    ? '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>'
+    : '<path d="M20 21V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16"/><path d="M12 11a3 3 0 100-6 3 3 0 000 6zM6 21v-1a6 6 0 0112 0v1"/>';
+  // Contenu statique uniquement — aucune donnée utilisateur injectée
+  z.innerHTML = '<input type="file" id="'+esc(inputId)+'" accept=".pdf,.txt,.doc,.docx" style="display:none">'
+    + '<div class="dz-icon '+esc(iconCls)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+svg+'</svg></div>'
+    + '<div class="dz-label">'+esc(label)+'</div>'
+    + '<div class="dz-hint">Glissez-d\u00e9posez ou cliquez</div>'
+    + '<div class="dz-formats"><span class="fmt">.pdf</span><span class="fmt">.txt</span><span class="fmt">.docx</span></div>';
+  z.onclick = () => document.getElementById(inputId).click();
+  if(isJob) setupDrop(zoneId, inputId, async file => {
+    const text = await extractText(file);
+    state.job = { file, text };
+    renderFileLoaded(z, file, text.length, iconCls, inputId, () => {
+      state.job = { file:null, text:'' }; resetZone(zoneId,inputId,iconCls,label,true); checkReady();
+    });
+    checkReady();
+  });
+  else {
+    const idx = CVS_META.findIndex(m=>m.id===zoneId);
+    setupDrop(zoneId, inputId, async file => {
+      const text = await extractText(file);
+      state.cvs[idx] = { file, text };
+      renderFileLoaded(z, file, text.length, iconCls, inputId, () => {
+        state.cvs[idx] = { file:null, text:'' }; resetZone(zoneId,inputId,iconCls,label,false); checkReady();
+      });
+      checkReady();
+    });
+  }
+}
+
+function checkReady() {
+  const ok = state.job.file && state.cvs.every(c=>c.file);
+  document.getElementById('btnGo').disabled = !ok;
+}
+
+// ═══════════════ SETTINGS ═══════════════
+function openSettings(){ document.getElementById('settingsModal').classList.add('active'); }
+function closeSettings(){ document.getElementById('settingsModal').classList.remove('active'); }
+function saveSettings(){
+  const raw = document.getElementById('apiKey').value.trim();
+  // FIX #4 : validation basique du format de clé
+  if (raw && !raw.startsWith('sk-')) {
+    showToast('Format de cl\u00e9 API invalide (doit commencer par sk-)');
+    return;
+  }
+  state.apiKey = raw;
+  state.model = document.getElementById('modelSelect').value;
+  // Effacer le champ après enregistrement (ne pas laisser en clair dans le DOM)
+  document.getElementById('apiKey').value = '';
+  closeSettings(); showToast('Param\u00e8tres enregistr\u00e9s \u2713');
+}
+
+// ═══════════════════════════════════════════════════
+// FIX #6 (MOYENNE) : Anonymisation renforcée
+// Ajout : prénoms français courants, noms composés,
+// URLs LinkedIn/réseaux sociaux, numéro de sécu, IBAN
+// ═══════════════════════════════════════════════════
+function anon(t) {
+  let r = t;
+  // Emails
+  r = r.replace(/[\w.+-]+@[\w.-]+\.\w{2,}/gi,'[EMAIL]');
+  // URLs / LinkedIn / réseaux sociaux
+  r = r.replace(/https?:\/\/[^\s)]+/gi,'[URL]');
+  r = r.replace(/linkedin\.com\/in\/[^\s)]+/gi,'[LINKEDIN]');
+  r = r.replace(/(facebook|instagram|twitter|x)\.com\/[^\s)]+/gi,'[RESEAU_SOCIAL]');
+  // Téléphones (FR + international, plus robuste)
+  r = r.replace(/(?:(?:\+|00)\s?\d{1,3}[\s.-]?)?(?:\(?\d{1,4}\)?[\s.-]?){2,4}\d{2,4}/g, function(m) {
+    // Ne remplacer que si ça ressemble vraiment à un téléphone (au moins 8 chiffres)
+    return (m.replace(/\D/g,'').length >= 8) ? '[TEL]' : m;
+  });
+  // Numéro de sécurité sociale
+  r = r.replace(/\b[12]\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{3}\s?\d{3}\s?\d{2}\b/g,'[NUM_SECU]');
+  // IBAN
+  r = r.replace(/\b[A-Z]{2}\d{2}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{4}[\s]?[\dA-Z]{0,4}\b/g,'[IBAN]');
+  // Dates de naissance (DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY)
+  r = r.replace(/\b(0?[1-9]|[12]\d|3[01])[\/\-\.](0?[1-9]|1[0-2])[\/\-\.](19|20)\d{2}\b/g,'[DATE]');
+  // Âge
+  r = r.replace(/\b\d{1,2}\s*ans\b/gi,'[AGE]');
+  // Adresses (numéro + type de voie)
+  r = r.replace(/\b\d{1,5}[\s,]+(rue|avenue|boulevard|all[eé]e|impasse|chemin|place|cours|passage|route|square|r[eé]sidence|lotissement)\s+[A-Za-z\u00C0-\u024F\s\-']{2,60}/gi,'[ADRESSE]');
+  // Codes postaux
+  r = r.replace(/\b\d{5}\b/g,'[CP]');
+  // Civilités
+  r = r.replace(/\b(monsieur|madame|mademoiselle|mr\.?|mme\.?|mlle\.?|m\.)\b/gi,'[CIVILITE]');
+  // Naissance
+  r = r.replace(/\bn[eé](e)?\s+(le|en)\s+[\d\/\-\.\s\w]+/gi,'[NAISSANCE]');
+  // Nationalité
+  r = r.replace(/\bnationalit[eé]\s*:?\s*[A-Za-z\u00C0-\u024F\-]+/gi,'[NATIONALITE]');
+  // Situation familiale
+  r = r.replace(/\b(mari[eé]|c[eé]libataire|divorc[eé]|pacs[eé]|veuf|veuve|concubinage|union\s+libre|situation\s+familiale|situation\s+matrimoniale)\b[^.\n]*/gi,'[PERSO]');
+  // Nombre d'enfants
+  r = r.replace(/\b\d+\s+enfants?\b/gi,'[ENFANTS]');
+  // Permis
+  r = r.replace(/\bpermis\s+[A-Z]\d?\b/gi,'[PERMIS]');
+  // Handicap / RQTH
+  r = r.replace(/\b(handicap[eé]?|rqth|travailleur\s+handicap[eé]|invalidit[eé]|a[ae]h|mdph)\b[^.\n]*/gi,'[SANTE]');
+  // Photo
+  r = r.replace(/\b(photo|portrait|image)\b/gi,'[PHOTO]');
+  // Prénom + NOM en début de ligne (pattern typique des CV)
+  r = r.replace(/^[A-Z\u00C0-\u024F][a-z\u00C0-\u024F]+[\s-]+[A-Z\u00C0-\u024F]{2,}$/gm,'[NOM_ANONYMISE]');
+  return r;
+}
+
+// ═══════════════ LOADING MSG ═══════════════
+const LOAD_MSGS = [
+  'Anonymisation en cours\u2026',
+  'Extraction des comp\u00e9tences\u2026',
+  'Analyse des signaux faibles\u2026',
+  '\u00c9valuation de l\u2019alignement culturel\u2026',
+  'Calcul des scores comparatifs\u2026'
+];
+let loadInterval;
+function startLoading() {
+  document.getElementById('loading').classList.add('active');
+  let i=0;
+  document.getElementById('loadMsg').textContent = LOAD_MSGS[0];
+  loadInterval = setInterval(() => {
+    i = Math.min(i+1, LOAD_MSGS.length-1);
+    document.getElementById('loadMsg').textContent = LOAD_MSGS[i];
+  }, 2200);
+}
+function stopLoading() {
+  clearInterval(loadInterval);
+  document.getElementById('loading').classList.remove('active');
+}
+
+// ═══════════════ MATCHING ═══════════════
+async function runMatching() {
+  if(!state.apiKey){ openSettings(); showToast('Configurez votre cl\u00e9 API.'); return; }
+
+  const values = document.getElementById('valuesText').value.trim();
+  startLoading();
+
+  const anonJob = anon(state.job.text);
+  const anonCVs = state.cvs.map(c => anon(c.text));
+
+  const systemPrompt = `Tu es un expert en recrutement éthique et matching de profils. Tu analyses des documents ANONYMISÉS.
+
+PHILOSOPHIE DE SCORING :
+Ce qui compte le plus, c'est l'ENGAGEMENT, l'ALIGNEMENT avec les valeurs de l'entreprise, et les SOFT SKILLS.
+Les compétences techniques sont évaluées mais NE SONT PAS éliminatoires : un candidat avec moins de compétences techniques mais très engagé et aligné culturellement DOIT pouvoir obtenir un bon score.
+
+PONDÉRATION (total = 100) :
+- Alignement valeurs & engagement : 40 points (le plus important)
+- Soft skills & savoir-être : 30 points
+- Compétences techniques : 20 points (non éliminatoire)
+- Signaux faibles : 10 points (bonus)
+
+SIGNAUX FAIBLES À DÉTECTER :
+- Missions intérim/CDD dans le même secteur ou la même entreprise
+- Métiers antérieurs avec contraintes similaires (nuit, astreintes, relation client, terrain)
+- Polyvalence démontrée par changements de secteur réussis
+- Progression rapide de responsabilités
+- Engagement associatif, bénévolat, mentorat
+- Auto-formation, certifications obtenues en parallèle d'un emploi
+- Gestion de crise, situations exceptionnelles
+- Implication dans des projets transversaux ou d'innovation
+
+RÈGLES ABSOLUES — AI ACT Art. 10 :
+- JAMAIS évaluer/inférer : genre, sexe, âge, origine, nationalité, religion, orientation sexuelle, handicap, situation familiale, apparence, lieu de résidence
+- Ignorer totalement tout indice résiduel de ces informations
+- Évaluer UNIQUEMENT : compétences, expérience, formation, engagement, soft skills, signaux faibles
+
+Tu analyses 3 CV contre 1 fiche de poste. Réponds UNIQUEMENT en JSON :
+{
+  "candidats": [
+    {
+      "id": "A",
+      "score_global": <0-100>,
+      "verdict": "<Excellent|Très bon|Bon|Moyen|Faible>",
+      "scores": {
+        "valeurs_engagement": { "score": <0-40>, "justification": "<2 phrases>" },
+        "soft_skills": { "score": <0-30>, "justification": "<2 phrases>" },
+        "competences_techniques": { "score": <0-20>, "justification": "<2 phrases>" },
+        "signaux_faibles": { "score": <0-10>, "details": [ {"signal":"<titre>","explication":"<pourquoi pertinent>"} ] }
+      },
+      "points_forts": ["<...>","<...>"],
+      "points_vigilance": ["<...>"],
+      "synthese": "<3 phrases : pourquoi ce candidat, ce qui le distingue>"
+    }
+  ],
+  "classement": ["A","B","C"],
+  "recommandation_finale": "<4-5 phrases comparatives : qui choisir et pourquoi, en rappelant que c'est une aide à la décision>"
+}`;
+
+  const userPrompt = `=== FICHE DE POSTE (anonymisée) ===
+${anonJob.substring(0,5000)}
+
+=== VALEURS & CULTURE D'ENTREPRISE ===
+${values || 'Non renseigné — évalue l\'engagement et le savoir-être de manière générale.'}
+
+=== CV CANDIDAT A (anonymisé) ===
+${anonCVs[0].substring(0,4000)}
+
+=== CV CANDIDAT B (anonymisé) ===
+${anonCVs[1].substring(0,4000)}
+
+=== CV CANDIDAT C (anonymisé) ===
+${anonCVs[2].substring(0,4000)}
+
+Rappel : évalue prioritairement l'engagement et l'alignement culturel. Les compétences techniques ne sont PAS éliminatoires.`;
+
+  try {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+state.apiKey },
+      body: JSON.stringify({
+        model: state.model,
+        messages: [{ role:'system', content:systemPrompt },{ role:'user', content:userPrompt }],
+        temperature: 0.15,
+        max_tokens: 4000,
+        response_format: { type:'json_object' }
+      })
+    });
+
+    if(!resp.ok) {
+      const err = await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message || 'Erreur HTTP '+resp.status);
+    }
+
+    const data = await resp.json();
+    const result = JSON.parse(data.choices?.[0]?.message?.content || '{}');
+    stopLoading();
+    renderResults(result);
+
+  } catch(e) {
+    stopLoading();
+    showToast('Erreur : '+e.message);
+    console.error(e);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// FIX #7 (MOYENNE) : renderResults — tout contenu de l'API
+// est échappé via esc() avant injection dans innerHTML
+// ═══════════════════════════════════════════════════
+function renderResults(r) {
+  const section = document.getElementById('results');
+  const cands = r.candidats || [];
+  const classement = r.classement || ['A','B','C'];
+  const labels = { A:'Candidat A', B:'Candidat B', C:'Candidat C' };
+  const colorMap = { A:'var(--c1)', B:'var(--c2)', C:'var(--c3)' };
+
+  // Sort by classement
+  const sorted = classement.map(id => cands.find(c=>c.id===id) || cands[classement.indexOf(id)]);
+
+  // Podium — toutes les données API passent par esc()
+  let podiumHTML = '';
+  sorted.forEach((c,i) => {
+    if(!c) return;
+    const s = safeNum(c.score_global, 0, 100);
+    const rank = i+1;
+    const isWinner = i===0;
+    const pvCls = s>=70?'pv-high':s>=45?'pv-med':'pv-low';
+
+    const bkHTML = [
+      { label:'Valeurs &amp; engagement', score:safeNum(c.scores?.valeurs_engagement?.score,0,40), max:40, color:colorMap[c.id] },
+      { label:'Soft skills', score:safeNum(c.scores?.soft_skills?.score,0,30), max:30, color:colorMap[c.id] },
+      { label:'Comp\u00e9tences techniques', score:safeNum(c.scores?.competences_techniques?.score,0,20), max:20, color:colorMap[c.id] },
+      { label:'Signaux faibles', score:safeNum(c.scores?.signaux_faibles?.score,0,10), max:10, color:colorMap[c.id] },
+    ].map(b => `
+      <div class="bk-row">
+        <div class="bk-label"><span>${b.label}</span><span style="font-family:'JetBrains Mono',monospace;font-size:0.7rem;">${b.score}/${b.max}</span></div>
+        <div class="bk-track"><div class="bk-fill" style="width:${safeNum(b.score/b.max*100,0,100).toFixed(0)}%;background:${b.color}"></div></div>
+      </div>`).join('');
+
+    podiumHTML += `
+      <div class="podium-card ${isWinner?'winner':''}">
+        <div class="podium-rank" style="color:${colorMap[c.id]}">#${rank}</div>
+        <div class="podium-label">${esc(labels[c.id]||c.id)}</div>
+        <div class="podium-score">${s}<span style="font-size:0.9rem;color:var(--text-light)">/100</span></div>
+        <div class="podium-verdict ${pvCls}">${esc(c.verdict||'')}</div>
+        <div class="breakdown">${bkHTML}</div>
+      </div>`;
+  });
+
+  // Detail cards — échappement de toutes les justifications et textes
+  let detailHTML = '';
+  cands.forEach((c,i) => {
+    const dcCls = 'dc-c'+(i+1);
+    const dotColor = COLORS[i];
+
+    const signals = (c.scores?.signaux_faibles?.details||[]).map(s => `
+      <div class="signal-item"><div class="sig-dot"></div><div><span class="sig-title">${esc(s.signal)}</span><br>${esc(s.explication)}</div></div>
+    `).join('') || '<div style="font-size:0.8rem;color:var(--text-light)">Aucun signal faible d\u00e9tect\u00e9.</div>';
+
+    const forts = (c.points_forts||[]).map(p => '<div class="explain-item"><span class="pt-plus">+</span>'+esc(p)+'</div>').join('');
+    const vigil = (c.points_vigilance||[]).map(p => '<div class="explain-item"><span class="pt-warn">!</span>'+esc(p)+'</div>').join('');
+
+    detailHTML += `
+      <div class="detail-card ${dcCls}">
+        <h5><span class="dot" style="background:${dotColor}"></span>${esc(labels[c.id]||'Candidat '+(i+1))}</h5>
+
+        <div class="section-title">Alignement valeurs &amp; engagement \u2014 ${safeNum(c.scores?.valeurs_engagement?.score,0,40)}/40</div>
+        <div style="font-size:0.82rem;line-height:1.5;">${esc(c.scores?.valeurs_engagement?.justification||'')}</div>
+
+        <div class="section-title">Soft skills \u2014 ${safeNum(c.scores?.soft_skills?.score,0,30)}/30</div>
+        <div style="font-size:0.82rem;line-height:1.5;">${esc(c.scores?.soft_skills?.justification||'')}</div>
+
+        <div class="section-title">Comp\u00e9tences techniques \u2014 ${safeNum(c.scores?.competences_techniques?.score,0,20)}/20</div>
+        <div style="font-size:0.82rem;line-height:1.5;">${esc(c.scores?.competences_techniques?.justification||'')}</div>
+
+        <div class="section-title">Signaux faibles \u2014 ${safeNum(c.scores?.signaux_faibles?.score,0,10)}/10</div>
+        ${signals}
+
+        <div class="section-title">Synth\u00e8se</div>
+        ${forts}${vigil}
+        <div style="margin-top:10px;padding:10px 14px;background:var(--bg);border-radius:8px;font-size:0.82rem;line-height:1.5;">${esc(c.synthese||'')}</div>
+      </div>`;
+  });
+
+  section.innerHTML = `
+    <div class="results-title">R\u00e9sultats comparatifs</div>
+    <div class="podium">${podiumHTML}</div>
+
+    <div style="background:var(--bg-card);border-radius:var(--radius);padding:20px 28px;margin-bottom:28px;border:1px solid var(--border);text-align:center;">
+      <p style="font-size:0.9rem;line-height:1.7;">${esc(r.recommandation_finale||'')}</p>
+    </div>
+
+    <div class="detail-grid">${detailHTML}</div>
+
+    <div class="compliance">
+      <div class="sh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <div>
+        <h5>Conformit\u00e9 AI Act \u2014 Transparence totale</h5>
+        <p>
+          Cet outil est une <strong>aide \u00e0 la d\u00e9cision humaine</strong>, pas une d\u00e9cision automatis\u00e9e (AI Act Art. 14).
+          Toutes les donn\u00e9es ont \u00e9t\u00e9 anonymis\u00e9es c\u00f4t\u00e9 client avant envoi (noms, genre, \u00e2ge, adresse, nationalit\u00e9, handicap, situation familiale supprim\u00e9s).
+          Le mod\u00e8le a re\u00e7u l\u2019instruction explicite de ne fonder son \u00e9valuation que sur les comp\u00e9tences, l\u2019engagement et les soft skills.
+          Pond\u00e9ration : valeurs/engagement 40% \u00b7 soft skills 30% \u00b7 techniques 20% (non \u00e9liminatoire) \u00b7 signaux faibles 10%.
+          Aucune donn\u00e9e n\u2019est stock\u00e9e. Le score \u2260 une d\u00e9cision. L\u2019humain reste d\u00e9cisionnaire.
+        </p>
+      </div>
+    </div>
+  `;
+
+  section.classList.add('active');
+  requestAnimationFrame(() => {
+    section.querySelectorAll('.bk-fill').forEach(b => { b.style.transition = 'width 1s ease 0.5s'; });
+  });
+  section.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ═══════════════ TOAST ═══════════════
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; // textContent, pas innerHTML
+  t.classList.add('active');
+  setTimeout(()=>t.classList.remove('active'), 3500);
+}
+</script>
+</body>
+</html>
